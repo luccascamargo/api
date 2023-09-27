@@ -1,5 +1,5 @@
 /* eslint-disable camelcase */
-import { NextFunction, Request, Response } from 'express'
+import { type NextFunction, type Request, type Response } from 'express'
 import { prisma } from '../utils/prisma'
 
 export class AdvertController {
@@ -502,7 +502,7 @@ export class AdvertController {
           },
         })
 
-        if (advertsFiltered.length) {
+        if (advertsFiltered.length > 0) {
           return res.json({ advertsFiltered })
         }
 
@@ -574,7 +574,7 @@ export class AdvertController {
         },
       })
 
-      if (advertsFiltered.length) {
+      if (advertsFiltered.length > 0) {
         return res.json({ advertsFiltered })
       }
 

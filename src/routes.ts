@@ -1,4 +1,4 @@
-import { Router, raw, Request, Response } from 'express'
+import { Router, raw, type Request, type Response } from 'express'
 
 import { OptionalController } from './controllers/OptionalController'
 import { AdvertController } from './controllers/AdvertController'
@@ -40,7 +40,7 @@ router.post(
   '/create-advert',
   upload.array('image-create'),
   getCep,
-  advertController.store
+  advertController.store,
 )
 
 router.put(
@@ -50,14 +50,14 @@ router.put(
   getPhotosInAdvert,
   advertController.deleteExistingPhotos,
   deletePhotos,
-  advertController.update
+  advertController.update,
 )
 
 router.delete(
   '/delete-advert',
   getPhotosInAdvert,
   deletePhotos,
-  advertController.delete
+  advertController.delete,
 )
 
 router.post('/create-checkout-session', stripeController.createSession)
@@ -67,7 +67,7 @@ router.post('/create-customer', stripeController.createUser)
 router.post(
   '/stripe_webhooks',
   raw({ type: 'application/json' }),
-  stripeController.webhook
+  stripeController.webhook,
 )
 
 router.post('/send', async (req: Request, res: Response) => {
@@ -84,25 +84,25 @@ router.post('/sync-user', stripeController.syncUser)
 
 router.get(
   '/get-subscriptions/:id',
-  subscriptionsController.getSubscriptionPerId
+  subscriptionsController.getSubscriptionPerId,
 )
 
 router.post(
   '/clerk-webhooks',
   raw({ type: 'application/json' }),
-  clerkController.webhook
+  clerkController.webhook,
 )
 
 router.post('/pay', async (req: Request, res: Response) => {
   try {
     const { customer, price } = req.body.data
     const ephemeralKey = await stripe.ephemeralKeys.create(
-      { customer: customer },
-      { apiVersion: '2022-11-15' }
+      { customer },
+      { apiVersion: '2022-11-15' },
     )
 
     const subscription = await stripe.subscriptions.create({
-      customer: customer,
+      customer,
       items: [
         {
           plan: price,
@@ -116,10 +116,10 @@ router.post('/pay', async (req: Request, res: Response) => {
     })
 
     res.json({
-      //@ts-ignore
+      // @ts-expect-error
       paymentIntent: subscription.latest_invoice?.payment_intent.client_secret,
       ephemeralKey: ephemeralKey.secret,
-      customer: customer,
+      customer,
       publishableKey:
         'pk_test_51Mi6N6A20bcBSMLHuQ14FBUdFo51V5og4QoWR3dvwz25CA1NeaYgEByWhvXzOqWLDWCnmDpihjkXugE5lXEZxebj00TqYFXNfF',
     })
@@ -133,7 +133,7 @@ router.post(
   '/associate-payment-method',
   async (req: Request, res: Response) => {
     try {
-      const { stripeCustomerId, stripePaymentMethodId } = req.body
+      const { stripeCustomerId, stripePaymentMethodId } = req.body.data
 
       await stripe.paymentMethods.attach(stripePaymentMethodId, {
         customer: stripeCustomerId,
@@ -146,9 +146,9 @@ router.post(
       return res.json({ ok: true })
     } catch (error) {
       console.error(error)
-      res.status(500).json({ message: 'Internal server error' })
+      return res.status(500).json({ message: 'Internal server error' })
     }
-  }
+  },
 )
 
 router.get('/payments/:customer', async (req: Request, res: Response) => {
