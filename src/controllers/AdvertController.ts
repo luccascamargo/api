@@ -2,6 +2,23 @@
 import { type NextFunction, type Request, type Response } from 'express'
 import { prisma } from '../utils/prisma'
 
+interface FilterProps {
+  city: string
+  type: string
+  board: string
+  model: string
+  minYear: number
+  maxYear: number
+  color: string
+  minPrice: number
+  maxPrice: number
+  minMileage: number
+  maxMileage: number
+  doors: string
+  transmission: string
+  optionals: string
+}
+
 export class AdvertController {
   async IndexPerId(req: Request, res: Response) {
     const { id } = req.params
@@ -413,25 +430,9 @@ export class AdvertController {
   }
 
   async filtered(req: Request, res: Response) {
-    const {
-      city,
-      type,
-      board,
-      model,
-      minYear,
-      maxYear,
-      color,
-      minPrice,
-      maxPrice,
-      minMileage,
-      maxMileage,
-      doors,
-      transmission,
-      optionals: dataOptionals,
-    } = req.body
-
+    const filters: FilterProps = req.body
     try {
-      if (dataOptionals) {
+      if (filters.optionals) {
         const advertsFiltered = await prisma.adverts.findMany({
           include: {
             photos: true,
@@ -527,49 +528,20 @@ export class AdvertController {
           condition: {
             equals: 'ACTIVE',
           },
-          OR: [
-            {
-              city: {
-                contains: city,
-                mode: 'insensitive',
-              },
-              type: {
-                contains: type,
-                mode: 'insensitive',
-              },
-              board: {
-                contains: board,
-                mode: 'insensitive',
-              },
-              color: {
-                contains: color,
-                mode: 'insensitive',
-              },
-              transmission: {
-                contains: transmission,
-                mode: 'insensitive',
-              },
-              doors: {
-                contains: doors,
-                mode: 'insensitive',
-              },
-              model: {
-                contains: model,
-                mode: 'insensitive',
-              },
-              year_model: {
-                gte: minYear,
-                lte: maxYear,
-              },
-              price: {
-                gte: minPrice,
-                lte: maxPrice,
-              },
-              mileage: {
-                gte: minMileage,
-                lte: maxMileage,
-              },
-            },
+          AND: [
+            filters.city ? { city: filters.city } : {},
+            filters.type ? { type: filters.type } : {},
+            filters.board ? { board: filters.board } : {},
+            filters.model ? { model: filters.model } : {},
+            filters.minYear ? { year_model: { gte: filters.minYear } } : {},
+            filters.maxYear ? { year_model: { lte: filters.maxYear } } : {},
+            filters.color ? { color: filters.color } : {},
+            filters.minPrice ? { price: { gte: filters.minPrice } } : {},
+            filters.maxPrice ? { price: { lte: filters.maxPrice } } : {},
+            filters.minMileage ? { mileage: { gte: filters.minMileage } } : {},
+            filters.maxMileage ? { mileage: { lte: filters.maxMileage } } : {},
+            filters.doors ? { doors: filters.doors } : {},
+            filters.transmission ? { transmission: filters.transmission } : {},
           ],
         },
       })
