@@ -12,6 +12,9 @@ import StripeController from './controllers/StripeController'
 import SubscriptionsController from './controllers/SubscriptionsController'
 import ClerkController from './controllers/ClerkController'
 import { stripe } from './utils/stripe'
+import { FipeController } from './controllers/FipeController'
+
+const VERSION = 'v1'
 
 const advertController = new AdvertController()
 const userController = new UsersController()
@@ -19,6 +22,7 @@ const optionalController = new OptionalController()
 const stripeController = new StripeController()
 const subscriptionsController = new SubscriptionsController()
 const clerkController = new ClerkController()
+const fipeController = new FipeController()
 
 export const router = Router()
 
@@ -28,13 +32,24 @@ router.put('/user/:id', userController.deleteUser)
 router.put('/user/phone/:id', userController.phoneUpdate)
 router.delete('/user/:id', userController.deleteUser)
 
-router.get('/advert/:id', advertController.IndexPerId)
+router.get('/advert/:id', advertController.IndexPerId) // get ads with user id
+router.get('/adverts/', advertController.List) // get ads with ad id
+router.get('/adverts/:id', advertController.IndexWithId) // get ads with ad id
 router.get('/advertPerUser/:user/:condition', advertController.IndexPerUser)
 router.post('/filtered', advertController.filtered)
 router.put('/publish', advertController.publishAdvert)
 
 router.get('/optionals', optionalController.index)
 router.post('/create-optional', optionalController.store)
+
+router.get('/' + VERSION + '/types', fipeController.types)
+router.get('/' + VERSION + '/brands/:type', fipeController.brands)
+router.get('/' + VERSION + '/models/:type/:brand', fipeController.models)
+router.get('/' + VERSION + '/years/:type/:brand/:model', fipeController.years)
+router.get(
+  '/' + VERSION + '/details/:type/:brand/:model/:year',
+  fipeController.details,
+)
 
 router.post(
   '/create-advert',
@@ -54,7 +69,7 @@ router.put(
 )
 
 router.delete(
-  '/delete-advert',
+  '/delete-advert/:id',
   getPhotosInAdvert,
   deletePhotos,
   advertController.delete,

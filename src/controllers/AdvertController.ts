@@ -1,23 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable camelcase */
 import { type NextFunction, type Request, type Response } from 'express'
 import { prisma } from '../utils/prisma'
-
-interface FilterProps {
-  city: string
-  type: string
-  board: string
-  model: string
-  minYear: number
-  maxYear: number
-  color: string
-  minPrice: number
-  maxPrice: number
-  minMileage: number
-  maxMileage: number
-  doors: string
-  transmission: string
-  optionals: string
-}
 
 export class AdvertController {
   async IndexPerId(req: Request, res: Response) {
@@ -36,10 +20,52 @@ export class AdvertController {
       })
 
       if (advert === null) {
-        return res.json({ message: 'Anuncio nao encontrado' })
+        return res.json({ message: 'Anuncio nao encontrado', status: false })
       }
 
       return res.status(200).json({ advert })
+    } catch (err) {
+      console.log(err)
+      return res.status(404).send('Advert not found')
+    }
+  }
+
+  async IndexWithId(req: Request, res: Response) {
+    const { id } = req.params
+    try {
+      const advert = await prisma.adverts.findUnique({
+        where: {
+          condicao: 'ACTIVE',
+          id,
+        },
+        include: {
+          photos: true,
+          Users: true,
+          optionals: true,
+        },
+      })
+
+      return res.status(200).json(advert)
+    } catch (err) {
+      console.log(err)
+      return res.status(404).send('Advert not found')
+    }
+  }
+
+  async List(req: Request, res: Response) {
+    try {
+      const adverts = await prisma.adverts.findMany({
+        where: {
+          condicao: 'ACTIVE',
+        },
+        include: {
+          photos: true,
+          Users: true,
+          optionals: true,
+        },
+      })
+
+      return res.status(200).json({ adverts, status: true })
     } catch (err) {
       console.log(err)
       return res.status(404).send('Advert not found')
@@ -58,12 +84,11 @@ export class AdvertController {
           include: {
             adverts: {
               where: {
-                condition: 'ACTIVE',
+                condicao: 'ACTIVE',
               },
               include: {
                 photos: true,
                 optionals: true,
-                Users: true,
               },
             },
           },
@@ -73,7 +98,7 @@ export class AdvertController {
           return res.status(200).json({ message: 'Usuario nao encontrado' })
         }
 
-        return res.status(200).json(advert)
+        return res.status(200).json(advert.adverts)
       } catch (err) {
         return res.status(404).send('Advert not found')
       }
@@ -88,12 +113,11 @@ export class AdvertController {
           include: {
             adverts: {
               where: {
-                condition: 'REQUESTED',
+                condicao: 'REQUESTED',
               },
               include: {
                 photos: true,
                 optionals: true,
-                Users: true,
               },
             },
           },
@@ -103,7 +127,7 @@ export class AdvertController {
           return res.status(200).json({ message: 'Usuario nao encontrado' })
         }
 
-        return res.status(200).json(advert)
+        return res.status(200).json(advert.adverts)
       } catch (err) {
         return res.status(404).send('Advert not found')
       }
@@ -118,12 +142,11 @@ export class AdvertController {
           include: {
             adverts: {
               where: {
-                condition: 'INACTIVE',
+                condicao: 'INACTIVE',
               },
               include: {
                 photos: true,
                 optionals: true,
-                Users: true,
               },
             },
           },
@@ -133,63 +156,41 @@ export class AdvertController {
           return res.status(200).json({ message: 'Usuario nao encontrado' })
         }
 
-        return res.status(200).json(advert)
+        return res.status(200).json(advert.adverts)
       } catch (err) {
         return res.status(404).send('Advert not found')
       }
-    }
-
-    try {
-      const advert = await prisma.users.findFirst({
-        where: {
-          clerk_id: user,
-        },
-        include: {
-          adverts: {
-            include: {
-              optionals: true,
-              photos: true,
-            },
-          },
-        },
-      })
-
-      if (!advert) {
-        return res.status(200).json({ message: 'Usuario nao encontrado' })
-      }
-
-      return res.status(200).json(advert)
-    } catch (err) {
-      return res.status(404).send('Advert not found')
     }
   }
 
   async store(req: Request, res: Response) {
     const {
-      board,
-      board_value,
+      marca,
       cep,
-      city,
-      color,
-      doors,
-      mileage,
-      model,
-      model_value,
-      description,
-      plate,
-      price,
-      state,
-      transmission,
-      type,
+      cidade,
+      cor,
+      portas,
+      quilometragem,
+      modelo,
+      descricao,
+      placa,
+      preco,
+      estado,
+      cambio,
+      tipo,
       user_id,
-      type_value,
-      year_model,
-      year_model_value,
-      optionals,
+      opcionais,
+      ano_modelo,
     } = req.body
 
     const photos: any = req.files
     const addPhotos: any = []
+
+    const optionalsFormated = JSON.parse(opcionais)
+
+    const optinalsData = optionalsFormated.map((id: string) => {
+      return { id }
+    })
 
     if (photos) {
       photos.map((photo: any) => {
@@ -206,7 +207,7 @@ export class AdvertController {
         where: {
           clerk_id: user_id,
         },
-        include: { adverts: { where: { condition: { not: 'INACTIVE' } } } },
+        include: { adverts: { where: { condicao: { not: 'INACTIVE' } } } },
       })
 
       if (!user) {
@@ -238,31 +239,27 @@ export class AdvertController {
               id: user.id,
             },
           },
-          board,
-          board_value,
+          marca,
           cep,
-          city,
-          color,
-          doors,
-          mileage: parseInt(mileage),
-          model,
-          model_value,
-          description,
-          plate,
-          price: parseInt(price),
-          state,
-          transmission,
-          type,
-          type_value,
-          year_model: parseInt(year_model),
-          year_model_value,
+          cidade,
+          cor,
+          portas,
+          quilometragem: parseInt(quilometragem),
+          modelo,
+          descricao,
+          placa,
+          preco: parseInt(preco),
+          estado,
+          cambio,
+          tipo,
+          ano_modelo: parseInt(ano_modelo),
           photos: {
             createMany: {
               data: addPhotos,
             },
           },
           optionals: {
-            connect: optionals ? JSON.parse(optionals) : [],
+            connect: optinalsData ? optinalsData : [],
           },
         },
       })
@@ -283,7 +280,7 @@ export class AdvertController {
         where: {
           clerk_id: user_id,
         },
-        include: { adverts: { where: { condition: { not: 'INACTIVE' } } } },
+        include: { adverts: { where: { condicao: { not: 'INACTIVE' } } } },
       })
 
       if (!user) {
@@ -316,7 +313,7 @@ export class AdvertController {
           id,
         },
         data: {
-          condition: 'REQUESTED',
+          condicao: 'REQUESTED',
         },
       })
 
@@ -383,17 +380,17 @@ export class AdvertController {
           id,
         },
         data: {
-          cep,
-          city,
-          color,
-          doors,
-          mileage: parseInt(mileage),
-          description,
-          plate,
-          price: parseInt(price),
-          state,
-          transmission,
-          condition: 'REQUESTED',
+          cep: cep,
+          cidade: city,
+          cor: color,
+          portas: doors,
+          quilometragem: parseInt(mileage),
+          descricao: description,
+          placa: plate,
+          preco: parseInt(price),
+          estado: state,
+          cambio: transmission,
+          condicao: 'REQUESTED',
           optionals: {
             connect: optionals ? JSON.parse(optionals) : [],
           },
@@ -413,7 +410,7 @@ export class AdvertController {
   }
 
   async delete(req: Request, res: Response) {
-    const { id } = req.body
+    const { id } = req.params
 
     try {
       await prisma.adverts.delete({
@@ -430,9 +427,12 @@ export class AdvertController {
   }
 
   async filtered(req: Request, res: Response) {
-    const filters: FilterProps = req.body
+    const filters = req.body
     try {
-      if (filters.optionals) {
+      if (filters?.optionals?.length > 0) {
+        const optinalsData = filters.optionals.map((id: string) => {
+          return { id }
+        })
         const advertsFiltered = await prisma.adverts.findMany({
           include: {
             photos: true,
@@ -441,73 +441,54 @@ export class AdvertController {
           },
           orderBy: [
             {
-              price: 'asc',
+              preco: 'asc',
             },
             {
-              mileage: 'asc',
+              quilometragem: 'asc',
             },
           ],
           where: {
-            condition: {
+            condicao: {
               equals: 'ACTIVE',
             },
-            OR: [
+            AND: [
               {
                 optionals: {
                   some: {
-                    AND: JSON.parse(dataOptionals),
+                    AND: optinalsData,
                   },
                 },
-                city: {
-                  contains: city,
-                  mode: 'insensitive',
-                },
-                type: {
-                  contains: type,
-                  mode: 'insensitive',
-                },
-                board: {
-                  contains: board,
-                  mode: 'insensitive',
-                },
-                color: {
-                  contains: color,
-                  mode: 'insensitive',
-                },
-                transmission: {
-                  contains: transmission,
-                  mode: 'insensitive',
-                },
-                doors: {
-                  contains: doors,
-                  mode: 'insensitive',
-                },
-                model: {
-                  contains: model,
-                  mode: 'insensitive',
-                },
-                year_model: {
-                  gte: minYear,
-                  lte: maxYear,
-                },
-                price: {
-                  gte: minPrice,
-                  lte: maxPrice,
-                },
-                mileage: {
-                  gte: minMileage,
-                  lte: maxMileage,
-                },
               },
+              filters.cidade ? { cidade: filters.cidade } : {},
+              filters.tipo ? { tipo: filters.tipo } : {},
+              filters.marca ? { marca: filters.marca } : {},
+              filters.modelo ? { modelo: filters.modelo } : {},
+              filters.cor ? { cor: filters.cor } : {},
+              filters.portas ? { portas: filters.portas } : {},
+              filters.cambio ? { cambio: filters.cambio } : {},
+              filters.precoMinimo
+                ? { preco: { gte: filters.precoMinimo } }
+                : {},
+              filters.precoMaximo
+                ? { preco: { lte: filters.precoMaximo } }
+                : {},
+              filters.kmMaximo
+                ? { quilometragem: { lte: filters.kmMaximo } }
+                : {},
+              filters.kmMinimo
+                ? { quilometragem: { gte: filters.kmMinimo } }
+                : {},
+              filters.anoMaximo
+                ? { ano_modelo: { lte: filters.anoMaximo } }
+                : {},
+              filters.anoMinimo
+                ? { ano_modelo: { gte: filters.anoMinimo } }
+                : {},
             ],
           },
         })
 
-        if (advertsFiltered.length > 0) {
-          return res.json({ advertsFiltered })
-        }
-
-        return res.json({ message: 'Nenhum anuncio foi encontrado' })
+        return res.json(advertsFiltered)
       }
 
       const advertsFiltered = await prisma.adverts.findMany({
@@ -518,39 +499,39 @@ export class AdvertController {
         },
         orderBy: [
           {
-            price: 'asc',
+            preco: 'asc',
           },
           {
-            mileage: 'asc',
+            quilometragem: 'asc',
           },
         ],
         where: {
-          condition: {
+          condicao: {
             equals: 'ACTIVE',
           },
           AND: [
-            filters.city ? { city: filters.city } : {},
-            filters.type ? { type: filters.type } : {},
-            filters.board ? { board: filters.board } : {},
-            filters.model ? { model: filters.model } : {},
-            filters.minYear ? { year_model: { gte: filters.minYear } } : {},
-            filters.maxYear ? { year_model: { lte: filters.maxYear } } : {},
-            filters.color ? { color: filters.color } : {},
-            filters.minPrice ? { price: { gte: filters.minPrice } } : {},
-            filters.maxPrice ? { price: { lte: filters.maxPrice } } : {},
-            filters.minMileage ? { mileage: { gte: filters.minMileage } } : {},
-            filters.maxMileage ? { mileage: { lte: filters.maxMileage } } : {},
-            filters.doors ? { doors: filters.doors } : {},
-            filters.transmission ? { transmission: filters.transmission } : {},
+            filters.cidade ? { cidade: filters.cidade } : {},
+            filters.tipo ? { tipo: filters.tipo } : {},
+            filters.marca ? { marca: filters.marca } : {},
+            filters.modelo ? { modelo: filters.modelo } : {},
+            filters.cor ? { cor: filters.cor } : {},
+            filters.portas ? { portas: filters.portas } : {},
+            filters.cambio ? { cambio: filters.cambio } : {},
+            filters.precoMinimo ? { preco: { gte: filters.precoMinimo } } : {},
+            filters.precoMaximo ? { preco: { lte: filters.precoMaximo } } : {},
+            filters.kmMaximo
+              ? { quilometragem: { lte: filters.kmMaximo } }
+              : {},
+            filters.kmMinimo
+              ? { quilometragem: { gte: filters.kmMinimo } }
+              : {},
+            filters.anoMaximo ? { ano_modelo: { lte: filters.anoMaximo } } : {},
+            filters.anoMinimo ? { ano_modelo: { gte: filters.anoMinimo } } : {},
           ],
         },
       })
 
-      if (advertsFiltered.length > 0) {
-        return res.json({ advertsFiltered })
-      }
-
-      return res.json({ message: 'Nenhum anuncio foi encontrado' })
+      return res.json(advertsFiltered)
     } catch (err) {
       console.log(err)
       return res.status(404).json({

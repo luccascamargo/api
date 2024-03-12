@@ -43,27 +43,23 @@ model Subscriptions {
 
 model Adverts {
   id               String    @id @default(uuid())
-  type             String
-  type_value       String
-  board            String
-  board_value      String
-  model            String
-  model_value      String
-  year_model       Int
-  year_model_value String
-  color            String
+  tipo             String
+  marca            String
+  modelo           String
+  ano_modelo       Int
+  cor              String
   cep              String
-  city             String
-  state            String
-  price            Int
-  doors            String
-  mileage          Int
-  description      String?
-  plate            String
-  transmission     String
-  created_at       DateTime  @default(now()) @db.Timestamp(6)
-  updated_at       DateTime? @default(now()) @db.Timestamp(6)
-  condition        Condition @default(REQUESTED)
+  cidade           String
+  estado           String
+  preco            Int
+  portas           String
+  quilometragem    Int
+  descricao        String?
+  placa            String
+  cambio           String
+  data_cricao      DateTime  @default(now()) @db.Timestamp(6)
+  data_atualizacao DateTime? @default(now()) @db.Timestamp(6)
+  condicao         Condition @default(REQUESTED)
 
   photos    Photos[]
   optionals Optional[]

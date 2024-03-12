@@ -6,8 +6,8 @@ export async function getCep(req: Request, res: Response, next: NextFunction) {
     const { cep } = req.body
     const result = await axios.get(`https://brasilapi.com.br/api/cep/v1/${cep}`)
 
-    req.body.state = result.data.state
-    req.body.city = result.data.city
+    req.body.estado = result.data.state
+    req.body.cidade = result.data.city
 
     next()
   } catch (err) {

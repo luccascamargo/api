@@ -1,4 +1,5 @@
 import AWS from 'aws-sdk'
+import { DeleteObjectsRequest } from 'aws-sdk/clients/s3'
 import multer from 'multer'
 import s3Storage from 'multer-sharp-s3'
 
@@ -17,8 +18,8 @@ export const upload = multer({
     s3,
     ACL: 'public-read',
     resize: {
-      width: 600,
-      height: 600,
+      width: 760,
+      height: 500,
     },
   }),
   limits: {
@@ -35,7 +36,7 @@ export const upload = multer({
   },
 })
 
-export const deleteFiles = async (object: any) => {
+export const deleteFiles = async (object: DeleteObjectsRequest) => {
   try {
     await s3.deleteObjects(object).promise()
     return { success: true, data: 'Arquivos deletados com sucesso' }

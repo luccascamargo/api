@@ -120,7 +120,7 @@ export default class StripeController {
       event = stripe.webhooks.constructEvent(
         req.body,
         signature as string,
-        webhookSecret as string
+        webhookSecret as string,
       )
     } catch (err: any) {
       console.log(`⚠️  Webhook signature falhou.`, err.message)
@@ -142,12 +142,12 @@ export default class StripeController {
         // @ts-ignore
         const stripeSubscriptionCurrentPeriodStart = new Date(
           // @ts-ignore
-          event.data.object.current_period_start * 1000
+          event.data.object.current_period_start * 1000,
         )
         // @ts-ignore
         const stripeSubscriptionCurrentPeriodEnd = new Date(
           // @ts-ignore
-          event.data.object.current_period_end * 1000
+          event.data.object.current_period_end * 1000,
         )
 
         const user = await prisma.users.findFirst({
@@ -228,7 +228,7 @@ export default class StripeController {
               },
             },
             data: {
-              condition: 'INACTIVE',
+              condicao: 'INACTIVE',
             },
           })
 
@@ -249,7 +249,7 @@ export default class StripeController {
                 },
               },
               data: {
-                condition: 'INACTIVE',
+                condicao: 'INACTIVE',
               },
             })
 

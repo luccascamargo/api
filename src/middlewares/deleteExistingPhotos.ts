@@ -1,41 +1,44 @@
-import { Request, Response, NextFunction } from "express";
-import { deleteFiles } from "./cloudS3";
+import { Request, Response, NextFunction } from 'express'
+import { deleteFiles } from './cloudS3'
 
 export async function deletePhotos(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) {
-  const { photos } = req.body;
+  const { photos } = req.body
 
-  const arrayPhotos: any = [];
+  const arrayPhotos: any = []
 
   if (photos.length < 0) {
-    return res.status(404).json({ error: "Invalid photos" });
+    return res.status(404).json({ error: 'Invalid photos' })
   }
 
   photos.map((photo: any) => {
     arrayPhotos.push({
       Key: photo.field_name,
       VersionId: photo.version_id,
-    });
-  });
+    })
+  })
 
   const params = {
-    Bucket: process.env.BUCKET,
+    Bucket: process.env.BUCKET || '',
     Delete: {
       Objects: arrayPhotos,
     },
-  };
+  }
 
-  const { success } = await deleteFiles(params);
+  const { success } = await deleteFiles({
+    Bucket: params.Bucket,
+    Delete: params.Delete,
+  })
 
   if (!success) {
     return res
       .status(500)
-      .json({ error: "Erro ao tentar deletar fotos que nao existem" });
+      .json({ error: 'Erro ao tentar deletar fotos que nao existem' })
   }
 
-  next();
-  return;
+  next()
+  return
 }
