@@ -5,8 +5,6 @@ import { AdvertController } from './controllers/AdvertController'
 import { UsersController } from './controllers/UsersController'
 import { getCep } from './middlewares/cep'
 import { upload } from './middlewares/cloudS3'
-import { deletePhotos } from './middlewares/deleteExistingPhotos'
-import { getPhotosInAdvert } from './middlewares/getPhotosInAdvert'
 import SendEmail from './services/SendEmail'
 import StripeController from './controllers/StripeController'
 import SubscriptionsController from './controllers/SubscriptionsController'
@@ -27,17 +25,22 @@ const fipeController = new FipeController()
 export const router = Router()
 
 router.get('/users', userController.index)
-router.get('/user/:id', userController.findUserPerId)
-router.put('/user/:id', userController.deleteUser)
+router.get('/user/:id', userController.findUserPerClerkId)
+router.get('/users/:id', userController.findUserPerId)
+router.put('/user/:id', userController.updateUSer)
 router.put('/user/phone/:id', userController.phoneUpdate)
 router.delete('/user/:id', userController.deleteUser)
 
 router.get('/advert/:id', advertController.IndexPerId) // get ads with user id
-router.get('/adverts/', advertController.List) // get ads with ad id
+router.get('/adverts', advertController.List)
 router.get('/adverts/:id', advertController.IndexWithId) // get ads with ad id
 router.get('/advertPerUser/:user/:condition', advertController.IndexPerUser)
 router.post('/filtered', advertController.filtered)
 router.put('/publish', advertController.publishAdvert)
+router.get(
+  '/validateAdvertWhithUser/:user_id/:advert_id',
+  advertController.ValidateAdvertWithUser,
+)
 
 router.get('/optionals', optionalController.index)
 router.post('/create-optional', optionalController.store)
@@ -51,31 +54,19 @@ router.get(
   fipeController.details,
 )
 
-router.post(
-  '/create-advert',
-  upload.array('image-create'),
-  getCep,
-  advertController.store,
-)
+router.post('/create-advert', getCep, advertController.store)
 
 router.put(
   '/update-advert',
   upload.array('image-update'),
   getCep,
-  getPhotosInAdvert,
-  advertController.deleteExistingPhotos,
-  deletePhotos,
   advertController.update,
 )
 
-router.delete(
-  '/delete-advert/:id',
-  getPhotosInAdvert,
-  deletePhotos,
-  advertController.delete,
-)
+router.delete('/delete-advert/:id', advertController.delete)
 
 router.post('/create-checkout-session', stripeController.createSession)
+router.post('/subscriptions', stripeController.retrieveSubstriptions)
 
 router.post('/create-customer', stripeController.createUser)
 

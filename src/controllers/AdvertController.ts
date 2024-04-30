@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable camelcase */
-import { type NextFunction, type Request, type Response } from 'express'
+import { Request, Response } from 'express'
 import { prisma } from '../utils/prisma'
+import { DeleteExistingPhotos } from '../services/DeleteExistingPhotos'
 
 export class AdvertController {
   async IndexPerId(req: Request, res: Response) {
@@ -70,6 +71,41 @@ export class AdvertController {
       console.log(err)
       return res.status(404).send('Advert not found')
     }
+  }
+
+  async ValidateAdvertWithUser(req: Request, res: Response) {
+    const { user_id, advert_id } = req.params
+    const advert = await prisma.adverts.findUnique({
+      where: {
+        id: advert_id,
+      },
+      include: {
+        Users: true,
+        optionals: {
+          select: {
+            id: true,
+          },
+        },
+        photos: {
+          select: {
+            key: true,
+            uri: true,
+          },
+        },
+      },
+    })
+
+    if (!advert) {
+      return res.status(404).json({ error: 'Anúncio não encontrado' })
+    }
+
+    if (advert.Users?.clerk_id !== user_id) {
+      return res
+        .status(403)
+        .json({ error: 'Você não tem permissão para acessar este anúncio' })
+    }
+
+    return res.status(200).json(advert)
   }
 
   async IndexPerUser(req: Request, res: Response) {
@@ -181,24 +217,14 @@ export class AdvertController {
       user_id,
       opcionais,
       ano_modelo,
+      imagens,
     } = req.body
 
-    const photos: any = req.files
-    const addPhotos: any = []
+    let optinalsData
 
-    const optionalsFormated = JSON.parse(opcionais)
-
-    const optinalsData = optionalsFormated.map((id: string) => {
-      return { id }
-    })
-
-    if (photos) {
-      photos.map((photo: any) => {
-        return addPhotos.push({
-          field_name: photo.key,
-          uri: photo.Location,
-          version_id: photo.VersionId,
-        })
+    if (opcionais) {
+      optinalsData = opcionais.map((id: string) => {
+        return { id }
       })
     }
 
@@ -255,7 +281,7 @@ export class AdvertController {
           ano_modelo: parseInt(ano_modelo),
           photos: {
             createMany: {
-              data: addPhotos,
+              data: imagens,
             },
           },
           optionals: {
@@ -324,79 +350,77 @@ export class AdvertController {
     }
   }
 
-  async deleteExistingPhotos(req: Request, res: Response, next: NextFunction) {
-    const { id } = req.body
-
-    try {
-      await prisma.adverts.update({
-        where: {
-          id,
-        },
-        data: {
-          photos: {
-            deleteMany: {},
-          },
-        },
-      })
-
-      next()
-    } catch (err) {
-      return res.status(404).json({ error: 'Anuncio nao encontrado' })
-    }
-  }
-
   async update(req: Request, res: Response) {
     const {
       id,
       cep,
-      city,
-      color,
-      doors,
-      mileage,
-      description,
-      plate,
-      price,
-      state,
-      transmission,
-      optionals,
+      cidade,
+      cor,
+      portas,
+      quilometragem,
+      descricao,
+      placa,
+      preco,
+      estado,
+      cambio,
+      opcionais,
+      imagens,
     } = req.body
 
-    const photos: any = req.files
-    const addPhotos: any = []
+    let optinalsData
 
-    if (photos) {
-      photos.map((photo: any) => {
-        return addPhotos.push({
-          field_name: photo.key,
-          uri: photo.Location,
-          version_id: photo.VersionId,
-        })
+    if (opcionais) {
+      optinalsData = opcionais.map((id: string) => {
+        return { id }
       })
     }
 
     try {
-      const advert = await prisma.adverts.update({
+      const findAdvert = await prisma.adverts.findFirst({
         where: {
           id,
         },
+        include: {
+          photos: {
+            select: {
+              key: true,
+            },
+          },
+        },
+      })
+
+      if (!findAdvert) {
+        return res.status(404).json({ error: 'Anuncio nao cadastrado' })
+      }
+
+      await prisma.photos.deleteMany({
+        where: {
+          advert_id: findAdvert.id,
+        },
+      })
+
+      const advert = await prisma.adverts.update({
+        where: {
+          id: findAdvert.id,
+        },
         data: {
-          cep: cep,
-          cidade: city,
-          cor: color,
-          portas: doors,
-          quilometragem: parseInt(mileage),
-          descricao: description,
-          placa: plate,
-          preco: parseInt(price),
-          estado: state,
-          cambio: transmission,
+          cep,
+          cidade,
+          cor,
+          portas,
+          quilometragem: parseInt(quilometragem),
+          descricao,
+          placa,
+          preco: parseInt(preco),
+          estado,
+          cambio,
           condicao: 'REQUESTED',
           optionals: {
-            connect: optionals ? JSON.parse(optionals) : [],
+            connect: optinalsData ? optinalsData : [],
           },
           photos: {
             createMany: {
-              data: addPhotos,
+              data: imagens,
             },
           },
         },
@@ -405,7 +429,7 @@ export class AdvertController {
       return res.status(200).json({ advert })
     } catch (err) {
       console.log(err)
-      return res.status(404).json({ error: 'Anuncio nao cadastrado' })
+      return res.status(404).json({ error: 'Erro no update' })
     }
   }
 
@@ -413,11 +437,20 @@ export class AdvertController {
     const { id } = req.params
 
     try {
-      await prisma.adverts.delete({
+      const advert = await prisma.adverts.delete({
         where: {
           id,
         },
+        include: {
+          photos: {
+            select: {
+              key: true,
+            },
+          },
+        },
       })
+
+      await DeleteExistingPhotos(advert.photos)
 
       return res.status(200).json({ message: 'Anuncio excluído com sucesso' })
     } catch (err) {
@@ -459,13 +492,55 @@ export class AdvertController {
                   },
                 },
               },
-              filters.cidade ? { cidade: filters.cidade } : {},
-              filters.tipo ? { tipo: filters.tipo } : {},
-              filters.marca ? { marca: filters.marca } : {},
-              filters.modelo ? { modelo: filters.modelo } : {},
-              filters.cor ? { cor: filters.cor } : {},
+              filters.cidade
+                ? {
+                    cidade: {
+                      equals: filters.cidade,
+                      mode: 'insensitive',
+                    },
+                  }
+                : {},
+              filters.tipo
+                ? {
+                    tipo: {
+                      contains: filters.tipo,
+                      mode: 'insensitive',
+                    },
+                  }
+                : {},
+              filters.marca
+                ? {
+                    marca: {
+                      contains: filters.marca,
+                      mode: 'insensitive',
+                    },
+                  }
+                : {},
+              filters.modelo
+                ? {
+                    modelo: {
+                      contains: filters.modelo,
+                      mode: 'insensitive',
+                    },
+                  }
+                : {},
+              filters.cor
+                ? {
+                    cor: {
+                      contains: filters.cor,
+                      mode: 'insensitive',
+                    },
+                  }
+                : {},
               filters.portas ? { portas: filters.portas } : {},
-              filters.cambio ? { cambio: filters.cambio } : {},
+              filters.cambio
+                ? {
+                    cambio: {
+                      contains: filters.cambio,
+                      mode: 'insensitive',
+                    },
+                  }
+                : {},
               filters.precoMinimo
                 ? { preco: { gte: filters.precoMinimo } }
                 : {},
@@ -510,20 +585,80 @@ export class AdvertController {
             equals: 'ACTIVE',
           },
           AND: [
-            filters.cidade ? { cidade: filters.cidade } : {},
-            filters.tipo ? { tipo: filters.tipo } : {},
-            filters.marca ? { marca: filters.marca } : {},
-            filters.modelo ? { modelo: filters.modelo } : {},
-            filters.cor ? { cor: filters.cor } : {},
+            filters.busca
+              ? {
+                  OR: [
+                    {
+                      cidade: { contains: filters.busca, mode: 'insensitive' },
+                    },
+                    {
+                      tipo: { contains: filters.busca, mode: 'insensitive' },
+                    },
+                    {
+                      modelo: { contains: filters.busca, mode: 'insensitive' },
+                    },
+                    {
+                      marca: { contains: filters.busca, mode: 'insensitive' },
+                    },
+                  ],
+                }
+              : {},
+            filters.cidade
+              ? {
+                  cidade: {
+                    contains: filters.cidade,
+                    mode: 'insensitive',
+                  },
+                }
+              : {},
+            filters.tipo
+              ? {
+                  tipo: {
+                    contains: filters.tipo,
+                    mode: 'insensitive',
+                  },
+                }
+              : {},
+            filters.marca
+              ? {
+                  marca: {
+                    contains: filters.marca,
+                    mode: 'insensitive',
+                  },
+                }
+              : {},
+            filters.modelo
+              ? {
+                  modelo: {
+                    contains: filters.modelo,
+                    mode: 'insensitive',
+                  },
+                }
+              : {},
+            filters.cor
+              ? {
+                  cor: {
+                    contains: filters.cor,
+                    mode: 'insensitive',
+                  },
+                }
+              : {},
             filters.portas ? { portas: filters.portas } : {},
-            filters.cambio ? { cambio: filters.cambio } : {},
+            filters.cambio
+              ? {
+                  cambio: {
+                    contains: filters.cambio,
+                    mode: 'insensitive',
+                  },
+                }
+              : {},
             filters.precoMinimo ? { preco: { gte: filters.precoMinimo } } : {},
             filters.precoMaximo ? { preco: { lte: filters.precoMaximo } } : {},
             filters.kmMaximo
-              ? { quilometragem: { lte: filters.kmMaximo } }
+              ? { quilometragem: { lte: filters.kmMaximo / 100 } }
               : {},
             filters.kmMinimo
-              ? { quilometragem: { gte: filters.kmMinimo } }
+              ? { quilometragem: { gte: filters.kmMinimo / 100 } }
               : {},
             filters.anoMaximo ? { ano_modelo: { lte: filters.anoMaximo } } : {},
             filters.anoMinimo ? { ano_modelo: { gte: filters.anoMinimo } } : {},

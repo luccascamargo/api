@@ -7,7 +7,8 @@ interface iUser {
   customer_id: string
   name: string
   clerk_id: string
-  plan: 'DEFAULT'
+  plan: 'GRATIS'
+  avatar?: string
 }
 
 export class UsersController {
@@ -31,6 +32,7 @@ export class UsersController {
           customer_id: customer.customer_id,
           name: customer.name,
           clerk_id: customer.clerk_id,
+          avatar: customer.avatar,
         },
       })
 
@@ -40,13 +42,57 @@ export class UsersController {
     }
   }
 
-  async findUserPerId(req: Request, res: Response) {
+  async findUserPerClerkId(req: Request, res: Response) {
     try {
       const { id } = req.params
 
       const user = await prisma.users.findFirst({
         where: {
           clerk_id: id,
+        },
+        select: {
+          id: true,
+          customer_id: true,
+          phone: true,
+          plan: true,
+          created_at: true,
+          subscriptions: {
+            select: {
+              status: true,
+              stripe_product_id: true,
+              current_period_end: true,
+              current_period_start: true,
+            },
+          },
+        },
+      })
+
+      if (!user) {
+        return res.status(400).json({ message: 'Usuario nao encontrado' })
+      }
+
+      return res.status(200).json(user)
+    } catch (err) {
+      console.log(err)
+
+      return res.status(400).json({ message: 'Nenhum usuário encontrado' })
+    }
+  }
+
+  async findUserPerId(req: Request, res: Response) {
+    try {
+      const { id } = req.params
+
+      const user = await prisma.users.findFirst({
+        where: {
+          id: id,
+        },
+        include: {
+          adverts: {
+            include: {
+              photos: true,
+            },
+          },
         },
       })
 

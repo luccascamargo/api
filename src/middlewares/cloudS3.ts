@@ -27,11 +27,16 @@ export const upload = multer({
   },
   fileFilter: function (req, file, cb) {
     const type = file.mimetype
-    if (type === 'image/jpeg' || type === 'image/jpg' || type === 'image/png') {
+    if (
+      type === 'image/jpeg' ||
+      type === 'image/jpg' ||
+      type === 'image/png' ||
+      type === 'image/webp'
+    ) {
       cb(null, true)
     } else {
       cb(null, false)
-      return cb(new Error('Invalid type'))
+      return cb(new Error('Tipo de arquivo invalido. Verifique suas imagens'))
     }
   },
 })

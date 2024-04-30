@@ -17,7 +17,10 @@ model Users {
   name          String
   email         String          @unique
   phone         String?
-  plan          Plan            @default(DEFAULT)
+  plan          Plan            @default(GRATIS)
+  updated_at    DateTime        @default(now()) @db.Timestamp(6)
+  created_at    DateTime        @default(now()) @db.Timestamp(6)
+  avatar        String?
   subscriptions Subscriptions[]
 
   adverts Adverts[]
@@ -79,12 +82,11 @@ model Optional {
 }
 
 model Photos {
-  id         String   @id @default(uuid())
-  field_name String
-  uri        String
-  version_id String
-  advert_id  String
-  Adverts    Adverts? @relation(fields: [advert_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id        String   @id @default(uuid())
+  uri       String
+  key       String
+  advert_id String
+  Adverts   Adverts? @relation(fields: [advert_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   @@map("photos")
 }
@@ -96,7 +98,7 @@ enum Condition {
 }
 
 enum Plan {
-  DEFAULT
+  GRATIS
   ECO
   BASICO
   PRO

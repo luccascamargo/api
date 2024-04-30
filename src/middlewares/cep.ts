@@ -3,11 +3,13 @@ import axios from 'axios'
 
 export async function getCep(req: Request, res: Response, next: NextFunction) {
   try {
-    const { cep } = req.body
-    const result = await axios.get(`https://brasilapi.com.br/api/cep/v1/${cep}`)
+    const data = req.body
+    const { data: dataBr } = await axios.get(
+      `https://viacep.com.br/ws/${data.cep}/json/`,
+    )
 
-    req.body.estado = result.data.state
-    req.body.cidade = result.data.city
+    req.body.estado = dataBr.uf
+    req.body.cidade = dataBr.localidade
 
     next()
   } catch (err) {

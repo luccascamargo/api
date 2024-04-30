@@ -111,6 +111,27 @@ export default class StripeController {
     }
   }
 
+  async retrieveSubstriptions(req: Request, res: Response) {
+    try {
+      const { customer } = req.body
+
+      const getCustomer = await stripe.customers.retrieve(customer)
+
+      const { data } = await stripe.subscriptions.list({
+        customer: getCustomer.id,
+        status: 'all',
+      })
+
+      return res.json({ data })
+    } catch (err) {
+      console.log(err)
+
+      return res
+        .status(200)
+        .json({ message: 'Erro ao buscar as subscriptions' })
+    }
+  }
+
   async webhook(req: Request, res: Response) {
     const signature = req.headers['stripe-signature']
 
@@ -122,7 +143,8 @@ export default class StripeController {
         signature as string,
         webhookSecret as string,
       )
-    } catch (err: any) {
+    } catch (err) {
+      //@ts-ignore
       console.log(`⚠️  Webhook signature falhou.`, err.message)
       return res.sendStatus(400)
     }
@@ -131,7 +153,7 @@ export default class StripeController {
       case 'customer.subscription.created':
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted': {
-        // @ts-ignore
+        //@ts-ignore
         const stripeSubscriptionId = event.data.object.id
         // @ts-ignore
         const status = event.data.object.status
@@ -238,7 +260,7 @@ export default class StripeController {
                 clerk_id: user.clerk_id,
               },
               data: {
-                plan: 'DEFAULT',
+                plan: 'GRATIS',
               },
             })
 
@@ -306,8 +328,6 @@ export default class StripeController {
         }
         break
       }
-      case 'customer.subscription.completed':
-        break
       default:
         console.log(`Eventos nao ouvidos ${event.type}`)
         return res.status(200)

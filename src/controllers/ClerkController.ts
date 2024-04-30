@@ -3,13 +3,14 @@ import { Request, Response } from 'express'
 import { Webhook } from 'svix'
 import { stripe } from '../utils/stripe'
 import { UsersController } from './UsersController'
+import { IncomingHttpHeaders } from 'http2'
 
 const secret = process.env.CLERK_WEBHOOK_SECRET as string
 
 export default class ClerkController {
   async webhook(req: Request, res: Response) {
     const payload = req.body
-    const headers: any = req.headers
+    const headers: IncomingHttpHeaders = req.headers
 
     const wh = new Webhook(secret)
 
@@ -44,7 +45,8 @@ export default class ClerkController {
             email: evt.data.email_addresses[0].email_address,
             clerk_id: evt.data.id,
             customer_id: customer.id,
-            plan: 'DEFAULT',
+            plan: 'GRATIS',
+            avatar: evt.data.image_url,
           })
         }
         break
