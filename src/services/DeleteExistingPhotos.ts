@@ -1,7 +1,7 @@
 import { deleteFiles } from '../middlewares/cloudS3'
 
 interface iPhotos {
-  key: string
+  key: string | null
 }
 
 interface iArrayKey {
@@ -18,21 +18,11 @@ export async function DeleteExistingPhotos(images: iPhotos[]) {
 
     images.map((photo) => {
       arrayPhotos.push({
-        Key: photo.key,
+        Key: photo.key!,
       })
     })
 
-    const params = {
-      Bucket: process.env.BUCKET || '',
-      Delete: {
-        Objects: arrayPhotos,
-      },
-    }
-
-    const { success } = await deleteFiles({
-      Bucket: params.Bucket,
-      Delete: params.Delete,
-    })
+    const { success } = await deleteFiles(arrayPhotos)
 
     if (!success) {
       throw new Error('Erro ao deletar imagens do S3')

@@ -88,7 +88,6 @@ export class AdvertController {
         },
         photos: {
           select: {
-            key: true,
             uri: true,
           },
         },
@@ -115,7 +114,7 @@ export class AdvertController {
       try {
         const advert = await prisma.users.findFirst({
           where: {
-            clerk_id: user,
+            customer_id: user,
           },
           include: {
             adverts: {
@@ -144,7 +143,7 @@ export class AdvertController {
       try {
         const advert = await prisma.users.findFirst({
           where: {
-            clerk_id: user,
+            customer_id: user,
           },
           include: {
             adverts: {
@@ -173,7 +172,7 @@ export class AdvertController {
       try {
         const advert = await prisma.users.findFirst({
           where: {
-            clerk_id: user,
+            customer_id: user,
           },
           include: {
             adverts: {
@@ -380,24 +379,21 @@ export class AdvertController {
         where: {
           id,
         },
-        include: {
-          photos: {
-            select: {
-              key: true,
-            },
-          },
-        },
       })
 
       if (!findAdvert) {
         return res.status(404).json({ error: 'Anuncio nao cadastrado' })
       }
 
-      await prisma.photos.deleteMany({
+      const deletingOldPhotos = await prisma.photos.deleteMany({
         where: {
           advert_id: findAdvert.id,
         },
       })
+
+      if (deletingOldPhotos) {
+        console.log(deletingOldPhotos)
+      }
 
       const advert = await prisma.adverts.update({
         where: {

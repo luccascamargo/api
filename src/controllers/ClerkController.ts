@@ -41,12 +41,14 @@ export default class ClerkController {
 
           const userController = new UsersController()
           await userController.create({
-            name: `${evt.data.first_name} ${evt.data.last_name}`,
+            firstName: evt.data.first_name,
+            lastName: evt.data.last_name,
             email: evt.data.email_addresses[0].email_address,
             clerk_id: evt.data.id,
             customer_id: customer.id,
             plan: 'GRATIS',
             avatar: evt.data.image_url,
+            payment_method: false,
           })
         }
         break

@@ -1,14 +1,17 @@
 import { Request, Response } from 'express'
 import { prisma } from '../utils/prisma'
 import { stripe } from '../utils/stripe'
+import { clerkClient } from '@clerk/clerk-sdk-node'
 
 interface iUser {
   email: string
   customer_id: string
-  name: string
+  firstName: string
+  lastName: string
   clerk_id: string
   plan: 'GRATIS'
   avatar?: string
+  payment_method: boolean
 }
 
 export class UsersController {
@@ -30,9 +33,11 @@ export class UsersController {
         data: {
           email: customer.email,
           customer_id: customer.customer_id,
-          name: customer.name,
+          firstName: customer.firstName,
+          lastName: customer.lastName,
           clerk_id: customer.clerk_id,
           avatar: customer.avatar,
+          payment_method: customer.payment_method,
         },
       })
 
@@ -54,8 +59,12 @@ export class UsersController {
           id: true,
           customer_id: true,
           phone: true,
+          firstName: true,
+          avatar: true,
+          lastName: true,
           plan: true,
           created_at: true,
+          payment_method: true,
           subscriptions: {
             select: {
               status: true,
@@ -89,6 +98,9 @@ export class UsersController {
         },
         include: {
           adverts: {
+            where: {
+              condicao: 'ACTIVE',
+            },
             include: {
               photos: true,
             },
@@ -110,20 +122,32 @@ export class UsersController {
 
   async updateUSer(req: Request, res: Response) {
     try {
-      const { email, phone } = req.body.data
+      const { phone, customer_id, firstName, lastName, avatar } = req.body
       const user = await prisma.users.update({
         where: {
-          email,
+          customer_id,
         },
         data: {
+          firstName,
+          lastName,
           phone,
+          avatar,
         },
+      })
+
+      await stripe.customers.update(customer_id, {
+        name: `${firstName} ${lastName}`,
+      })
+
+      await clerkClient.users.updateUser(user.clerk_id, {
+        firstName,
+        lastName,
       })
 
       return res.status(200).json(user)
     } catch (err) {
       console.log(err)
-      return res.status(400).json({ message: 'Usuario nao econtrado' })
+      return res.status(400).json({ message: 'Erro ao editar o usuario' })
     }
   }
 

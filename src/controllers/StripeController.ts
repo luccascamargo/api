@@ -8,7 +8,7 @@ const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
 export default class StripeController {
   async createSession(req: Request, res: Response) {
     try {
-      const { customerId, key } = req.body.data
+      const { customerId, key } = req.body
 
       const user = await prisma.users.findFirst({
         where: {
@@ -22,40 +22,36 @@ export default class StripeController {
 
       const customer = await stripe.customers.retrieve(user.customer_id)
 
-      const subscriptionAlreadyExists = await prisma.subscriptions.findFirst({
+      const subscriptionIsActive = await prisma.subscriptions.findFirst({
         where: {
-          customer_id: customer.id,
-          AND: {
-            status: true,
-          },
+          customer_id: customerId,
+          status: true,
         },
       })
 
-      if (subscriptionAlreadyExists) {
+      if (!key || subscriptionIsActive) {
         const session = await stripe.billingPortal.sessions.create({
-          customer: subscriptionAlreadyExists.customer_id,
-          return_url: 'https://iserra.app/mobile',
-        })
-        return res.status(200).json(session.url)
-      }
-
-      if (key) {
-        const session = await stripe.checkout.sessions.create({
-          billing_address_collection: 'auto',
           customer: customer.id,
-          line_items: [
-            {
-              price: key,
-              quantity: 1,
-            },
-          ],
-          mode: 'subscription',
-          success_url: `https://iserra.app/mobile`,
-          cancel_url: `https://iserra.app/mobile`,
+          return_url: 'http://localhost:3000/',
         })
-
         return res.status(200).json(session.url)
       }
+
+      const session = await stripe.checkout.sessions.create({
+        billing_address_collection: 'auto',
+        customer: customer.id,
+        line_items: [
+          {
+            price: key,
+            quantity: 1,
+          },
+        ],
+        mode: 'subscription',
+        success_url: `http://localhost:3000?sucess=true`,
+        cancel_url: `http://localhost:3000?sucess=false`,
+      })
+
+      return res.status(200).json(session.url)
     } catch (err) {
       console.log(err)
 
@@ -174,7 +170,7 @@ export default class StripeController {
 
         const user = await prisma.users.findFirst({
           where: {
-            customer_id: stripeCustomerId,
+            customer_id: stripeCustomerId as string,
           },
         })
 
@@ -184,7 +180,7 @@ export default class StripeController {
 
         const subscription = await prisma.subscriptions.findFirst({
           where: {
-            customer_id: stripeCustomerId,
+            customer_id: stripeCustomerId as string,
             subscription_id: stripeSubscriptionId,
             status: true,
           },
@@ -285,7 +281,7 @@ export default class StripeController {
           // create
           await prisma.subscriptions.create({
             data: {
-              customer_id: stripeCustomerId,
+              customer_id: stripeCustomerId as string,
               status: true,
               user_id: user?.id,
               stripe_product_id: stripeProductId,

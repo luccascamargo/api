@@ -24,5 +24,5 @@ app.use(router)
 app.use('/', router)
 
 app.listen(Number(port), () => {
-  console.log(` Example app listening at http://localhost:${port}`)
+  console.log(`🚀 Server is running in http://localhost:${port}`)
 })

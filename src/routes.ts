@@ -4,13 +4,14 @@ import { OptionalController } from './controllers/OptionalController'
 import { AdvertController } from './controllers/AdvertController'
 import { UsersController } from './controllers/UsersController'
 import { getCep } from './middlewares/cep'
-import { upload } from './middlewares/cloudS3'
-import SendEmail from './services/SendEmail'
 import StripeController from './controllers/StripeController'
 import SubscriptionsController from './controllers/SubscriptionsController'
 import ClerkController from './controllers/ClerkController'
 import { stripe } from './utils/stripe'
 import { FipeController } from './controllers/FipeController'
+import { Resend } from 'resend'
+
+const resend = new Resend('re_GfoNMvqU_MteZG9cDpxn5Yfmfxxc2XpcX')
 
 const VERSION = 'v1'
 
@@ -56,12 +57,7 @@ router.get(
 
 router.post('/create-advert', getCep, advertController.store)
 
-router.put(
-  '/update-advert',
-  upload.array('image-update'),
-  getCep,
-  advertController.update,
-)
+router.put('/update-advert', getCep, advertController.update)
 
 router.delete('/delete-advert/:id', advertController.delete)
 
@@ -75,16 +71,6 @@ router.post(
   raw({ type: 'application/json' }),
   stripeController.webhook,
 )
-
-router.post('/send', async (req: Request, res: Response) => {
-  const sendEmail = new SendEmail()
-  await sendEmail.run({
-    name: 'Lucas Camargo',
-    email: 'lucascamargo.dev@gmail.com',
-    template: 'create-customer',
-  })
-  return res.json({ ok: true })
-})
 
 router.post('/sync-user', stripeController.syncUser)
 
@@ -135,27 +121,45 @@ router.post('/pay', async (req: Request, res: Response) => {
   }
 })
 
-router.post(
-  '/associate-payment-method',
-  async (req: Request, res: Response) => {
-    try {
-      const { stripeCustomerId, stripePaymentMethodId } = req.body.data
+router.post('/create-payment-method', async (req: Request, res: Response) => {
+  try {
+    const { options } = req.body.data
 
-      await stripe.paymentMethods.attach(stripePaymentMethodId, {
-        customer: stripeCustomerId,
-      })
+    console.log(options)
 
-      await stripe.customers.update(stripeCustomerId, {
-        invoice_settings: { default_payment_method: stripePaymentMethodId },
-      })
+    // const paymentMethod = await stripe.paymentMethods.create({
+    //   type: 'card',
+    //   card: {
+    //     number: values.number,
+    //     exp_month: values.exp_month,
+    //     exp_year: values.exp_year,
+    //     cvc: values.cvc,
+    //   },
+    // })
 
-      return res.json({ ok: true })
-    } catch (error) {
-      console.error(error)
-      return res.status(500).json({ message: 'Internal server error' })
-    }
-  },
-)
+    // await stripe.paymentMethods.attach(paymentMethod.id, {
+    //   customer: stripeCustomerId,
+    // })
+
+    // await stripe.customers.update(stripeCustomerId, {
+    //   invoice_settings: { default_payment_method: paymentMethod.id },
+    // })
+
+    // await prisma.users.update({
+    //   where: {
+    //     customer_id: stripeCustomerId,
+    //   },
+    //   data: {
+    //     payment_method: true,
+    //   },
+    // })
+
+    return res.json({ ok: true })
+  } catch (error) {
+    console.error(error)
+    return res.status(500).json({ message: 'Internal server error' })
+  }
+})
 
 router.get('/payments/:customer', async (req: Request, res: Response) => {
   try {
@@ -197,4 +201,19 @@ router.get('/subscriptions/:customer', async (req: Request, res: Response) => {
     console.log(error)
     return res.status(500).json({ message: 'Error subscriptions list route' })
   }
+})
+
+router.get('/send', async (req: Request, res: Response) => {
+  const { data, error } = await resend.emails.send({
+    from: 'Lucas Resend <onboarding@resend.dev>',
+    to: ['lucascamargo.dev@gmail.com'],
+    subject: 'hello world',
+    html: '<strong>it works!</strong>',
+  })
+
+  if (error) {
+    return res.status(400).json({ error })
+  }
+
+  return res.status(200).json({ data })
 })
