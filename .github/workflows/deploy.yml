@@ -13,10 +13,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v1
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
         with:
-          bun-version: 'latest'
+          node-version: '20' # Certifique-se de usar a versão do Node.js que você precisa
 
       - name: Install dependencies
         run: npm install
@@ -32,6 +32,6 @@ jobs:
         run: |
           echo "$SSH_PRIVATE_KEY" > private_key
           chmod 600 private_key
-          rsync -avz -e "ssh -i private_key -o StrictHostKeyChecking=no" --exclude 'node_modules' ./ $SERVER_USER@$SERVER_HOST:/iserra-api
-          ssh -i private_key -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_HOST "cd /iserra-api && npm install && npm run start"
+          rsync -avz -e "ssh -i private_key -o StrictHostKeyChecking=no" --exclude 'node_modules' ./dist/ $SERVER_USER@$SERVER_HOST:/iserra-api
+          ssh -i private_key -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_HOST "cd /iserra-api && npm install --production && npm run start"
         shell: bash
