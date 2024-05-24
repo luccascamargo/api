@@ -32,7 +32,7 @@ export default class StripeController {
       if (!key || subscriptionIsActive) {
         const session = await stripe.billingPortal.sessions.create({
           customer: customer.id,
-          return_url: 'http://localhost:3000/',
+          return_url: process.env.PUBLIC_URL,
         })
         return res.status(200).json(session.url)
       }
@@ -47,8 +47,8 @@ export default class StripeController {
           },
         ],
         mode: 'subscription',
-        success_url: `http://localhost:3000?sucess=true`,
-        cancel_url: `http://localhost:3000?sucess=false`,
+        success_url: `${process.env.PUBLIC_URL}?sucess=true`,
+        cancel_url: `${process.env.PUBLIC_URL}?sucess=false`,
       })
 
       return res.status(200).json(session.url)
