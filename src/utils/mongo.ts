@@ -17,7 +17,7 @@ export async function add(collectionName: string, data: any) {
 
   try {
     // select the database
-    client.connect()
+    await client.connect()
     const db = client.db(dbName)
     // select the collection
     const collection = db.collection(collectionName)
@@ -33,7 +33,7 @@ export async function add(collectionName: string, data: any) {
     // Closed DB
     await client.close()
   } catch (error) {
-    if (DEBUG) console.warn(new Date(), 'DB connection error', error)
+    if (DEBUG) console.warn(new Date(), 'Erro de conexao com o mongo', error)
   }
 }
 // Drop
@@ -44,7 +44,7 @@ export async function drop(collectionName: string) {
   try {
     // create a new MongoDB client
     // select the database
-    client.connect()
+    await client.connect()
     const db = client.db(dbName)
     // select the collection
     const collection = db.collection(collectionName)
@@ -68,7 +68,7 @@ export async function find(collectionName: string, query: any) {
   try {
     // create a new MongoDB client
     // select the database
-    client.connect()
+    await client.connect()
     const db = client.db(dbName)
     // select the collection
     const collection = db.collection(collectionName)

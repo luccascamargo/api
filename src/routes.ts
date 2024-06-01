@@ -34,7 +34,7 @@ router.delete('/user/:id', userController.deleteUser)
 
 router.get('/advert/:id', advertController.IndexPerId) // get ads with user id
 router.get('/adverts', advertController.List)
-router.get('/adverts/:id', advertController.IndexWithId) // get ads with ad id
+router.get('/adverts/:slug', advertController.IndexWithId) // get ads with ad slug
 router.get('/advertPerUser/:user/:condition', advertController.IndexPerUser)
 router.post('/filtered', advertController.filtered)
 router.put('/publish', advertController.publishAdvert)

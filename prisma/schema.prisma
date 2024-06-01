@@ -65,6 +65,7 @@ model Adverts {
   data_cricao      DateTime  @default(now()) @db.Timestamp(6)
   data_atualizacao DateTime? @default(now()) @db.Timestamp(6)
   condicao         Condition @default(REQUESTED)
+  slug             String    @unique
 
   photos    Photos[]
   optionals Optional[]

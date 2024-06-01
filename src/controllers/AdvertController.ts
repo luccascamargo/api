@@ -3,6 +3,8 @@
 import { Request, Response } from 'express'
 import { prisma } from '../utils/prisma'
 import { DeleteExistingPhotos } from '../services/DeleteExistingPhotos'
+import { CreateSlug } from '../utils/slug'
+import { v4 as uuidv4 } from 'uuid'
 
 export class AdvertController {
   async IndexPerId(req: Request, res: Response) {
@@ -32,12 +34,12 @@ export class AdvertController {
   }
 
   async IndexWithId(req: Request, res: Response) {
-    const { id } = req.params
+    const { slug } = req.params
     try {
       const advert = await prisma.adverts.findUnique({
         where: {
           condicao: 'ACTIVE',
-          id,
+          slug,
         },
         include: {
           photos: true,
@@ -46,10 +48,16 @@ export class AdvertController {
         },
       })
 
-      return res.status(200).json(advert)
+      if (advert) {
+        return res.status(200).json(advert)
+      }
+
+      return res
+        .status(200)
+        .json({ error: true, message: 'Anuncio nao encontrado' })
     } catch (err) {
       console.log(err)
-      return res.status(404).send('Advert not found')
+      return res.status(404).send('Falha na requisicao')
     }
   }
 
@@ -221,6 +229,10 @@ export class AdvertController {
 
     let optinalsData
 
+    function arrayToSingleSlug(array: string[]) {
+      return array.map(CreateSlug).join('-')
+    }
+
     if (opcionais) {
       optinalsData = opcionais.map((id: string) => {
         return { id }
@@ -277,6 +289,7 @@ export class AdvertController {
           estado,
           cambio,
           tipo,
+          slug: arrayToSingleSlug([marca, modelo, cidade, cor, uuidv4()]),
           ano_modelo: parseInt(ano_modelo),
           photos: {
             createMany: {
@@ -456,17 +469,22 @@ export class AdvertController {
   }
 
   async filtered(req: Request, res: Response) {
-    const filters = req.body
+    const { pageParam, pageSize, filters } = req.body
+    const pageInt = parseInt(pageParam, 10)
+    const pageSizeInt = parseInt(pageSize, 10)
+    const skip = (pageInt - 1) * pageSizeInt
+    const take = pageSizeInt
+
     try {
       if (filters?.optionals?.length > 0) {
         const optinalsData = filters.optionals.map((id: string) => {
           return { id }
         })
         const advertsFiltered = await prisma.adverts.findMany({
+          take: take,
+          skip: skip,
           include: {
             photos: true,
-            Users: true,
-            optionals: true,
           },
           orderBy: [
             {
@@ -563,10 +581,10 @@ export class AdvertController {
       }
 
       const advertsFiltered = await prisma.adverts.findMany({
+        take,
+        skip,
         include: {
           photos: true,
-          Users: true,
-          optionals: true,
         },
         orderBy: [
           {
@@ -662,7 +680,110 @@ export class AdvertController {
         },
       })
 
-      return res.json(advertsFiltered)
+      const advertsTotal = await prisma.adverts.count({
+        orderBy: [
+          {
+            preco: 'asc',
+          },
+          {
+            quilometragem: 'asc',
+          },
+        ],
+        where: {
+          condicao: {
+            equals: 'ACTIVE',
+          },
+          AND: [
+            filters.busca
+              ? {
+                  OR: [
+                    {
+                      cidade: { contains: filters.busca, mode: 'insensitive' },
+                    },
+                    {
+                      tipo: { contains: filters.busca, mode: 'insensitive' },
+                    },
+                    {
+                      modelo: { contains: filters.busca, mode: 'insensitive' },
+                    },
+                    {
+                      marca: { contains: filters.busca, mode: 'insensitive' },
+                    },
+                  ],
+                }
+              : {},
+            filters.cidade
+              ? {
+                  cidade: {
+                    contains: filters.cidade,
+                    mode: 'insensitive',
+                  },
+                }
+              : {},
+            filters.tipo
+              ? {
+                  tipo: {
+                    contains: filters.tipo,
+                    mode: 'insensitive',
+                  },
+                }
+              : {},
+            filters.marca
+              ? {
+                  marca: {
+                    contains: filters.marca,
+                    mode: 'insensitive',
+                  },
+                }
+              : {},
+            filters.modelo
+              ? {
+                  modelo: {
+                    contains: filters.modelo,
+                    mode: 'insensitive',
+                  },
+                }
+              : {},
+            filters.cor
+              ? {
+                  cor: {
+                    contains: filters.cor,
+                    mode: 'insensitive',
+                  },
+                }
+              : {},
+            filters.portas ? { portas: filters.portas } : {},
+            filters.cambio
+              ? {
+                  cambio: {
+                    contains: filters.cambio,
+                    mode: 'insensitive',
+                  },
+                }
+              : {},
+            filters.precoMinimo ? { preco: { gte: filters.precoMinimo } } : {},
+            filters.precoMaximo ? { preco: { lte: filters.precoMaximo } } : {},
+            filters.kmMaximo
+              ? { quilometragem: { lte: filters.kmMaximo / 100 } }
+              : {},
+            filters.kmMinimo
+              ? { quilometragem: { gte: filters.kmMinimo / 100 } }
+              : {},
+            filters.anoMaximo ? { ano_modelo: { lte: filters.anoMaximo } } : {},
+            filters.anoMinimo ? { ano_modelo: { gte: filters.anoMinimo } } : {},
+          ],
+        },
+      })
+
+      const nextPage = skip + take < advertsTotal ? pageInt + 1 : null
+
+      return res.json({
+        data: advertsFiltered,
+        total: advertsTotal,
+        page: pageInt,
+        nextPage,
+        pageSize: parseInt(pageSize, 10),
+      })
     } catch (err) {
       console.log(err)
       return res.status(404).json({

@@ -109,7 +109,9 @@ export class UsersController {
       })
 
       if (!user) {
-        return res.status(400).json({ message: 'Usuario nao encontrado' })
+        return res
+          .status(200)
+          .json({ error: true, message: 'Usuario nao encontrado' })
       }
 
       return res.status(200).json(user)
