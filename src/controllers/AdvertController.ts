@@ -7,32 +7,6 @@ import { CreateSlug } from '../utils/slug'
 import { v4 as uuidv4 } from 'uuid'
 
 export class AdvertController {
-  async IndexPerId(req: Request, res: Response) {
-    const { id } = req.params
-
-    try {
-      const advert = await prisma.adverts.findUnique({
-        where: {
-          id,
-        },
-        include: {
-          photos: true,
-          Users: true,
-          optionals: true,
-        },
-      })
-
-      if (advert === null) {
-        return res.json({ message: 'Anuncio nao encontrado', status: false })
-      }
-
-      return res.status(200).json({ advert })
-    } catch (err) {
-      console.log(err)
-      return res.status(404).send('Advert not found')
-    }
-  }
-
   async IndexWithId(req: Request, res: Response) {
     const { slug } = req.params
     try {
@@ -82,10 +56,10 @@ export class AdvertController {
   }
 
   async ValidateAdvertWithUser(req: Request, res: Response) {
-    const { user_id, advert_id } = req.params
+    const { user_id, advert_slug } = req.params
     const advert = await prisma.adverts.findUnique({
       where: {
-        id: advert_id,
+        slug: advert_slug,
       },
       include: {
         Users: true,
