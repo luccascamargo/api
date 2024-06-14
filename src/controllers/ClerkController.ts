@@ -4,6 +4,7 @@ import { Webhook } from 'svix'
 import { stripe } from '../utils/stripe'
 import { UsersController } from './UsersController'
 import { IncomingHttpHeaders } from 'http2'
+import { prisma } from '../utils/prisma'
 
 const secret = process.env.CLERK_WEBHOOK_SECRET as string
 
@@ -26,12 +27,17 @@ export default class ClerkController {
     switch (evt.type) {
       case 'user.created':
         {
-          const customerAlreadyExists = await stripe.customers.search({
-            query: `email:"${evt.data.email_addresses[0].email_address}"`,
+          const customerAlreadyExists = await prisma.users.findFirst({
+            where: {
+              clerk_id: evt.data.id,
+              email: evt.data.email_addresses[0].email_address,
+            },
           })
 
-          if (customerAlreadyExists.data.length !== 0) {
-            return res.json({ message: 'Customer ja existe' })
+          if (customerAlreadyExists) {
+            return res
+              .status(409)
+              .json({ message: 'Cliente já existe na base de dados' })
           }
 
           const customer = await stripe.customers.create({
@@ -50,6 +56,9 @@ export default class ClerkController {
             avatar: evt.data.image_url,
             payment_method: false,
           })
+          return res
+            .status(201)
+            .json({ message: 'Cliente cadastrado com sucesso' })
         }
         break
       default:
