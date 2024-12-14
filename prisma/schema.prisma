@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   String         @id @unique @default(uuid())
+  stripe_id            String         @unique
+  nome                 String
+  sobrenome            String
+  email                String         @unique
+  telefone             String?
+  ativo                Boolean
+  plano                Plan           @default(GRATIS)
+  data_atualizacao     DateTime       @default(now()) @db.Timestamp(6)
+  data_criacao         DateTime       @default(now()) @db.Timestamp(6)
+  imagem               String?
+  senha                String
+  anuncios             Adverts[]
+  inscricoes           Subscription[]
+  token_de_atualizacao RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id               String   @id @unique @default(uuid())
+  token            String   @unique
+  usuario_id       String
+  usuario          User     @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+  data_ciacao      DateTime @default(now())
+  data_atualizacao DateTime @updatedAt
+}
+
+model Subscription {
+  id                String   @unique @default(uuid())
+  status            Boolean
+  inscricao_id      String?
+  usuario_id        String
+  stripe_produto_id String?
+  data_atualizacao  DateTime @default(now()) @db.Timestamp(6)
+  data_criacao      DateTime @default(now()) @db.Timestamp(6)
+  periodo_inicial   DateTime
+  periodo_final     DateTime
+  usuario           User     @relation(fields: [usuario_id], references: [id])
+
+  @@map("subscriptions")
+}
+
+model Adverts {
+  id               String     @id @default(uuid())
+  tipo             String
+  marca            String
+  modelo           String
+  ano_modelo       Int
+  cor              String
+  cep              String
+  cidade           String
+  estado           String
+  preco            Int
+  portas           String
+  quilometragem    Int
+  descricao        String?
+  placa            String
+  cambio           String
+  data_cricao      DateTime   @default(now()) @db.Timestamp(6)
+  data_atualizacao DateTime?  @default(now()) @db.Timestamp(6)
+  condicao         Condition  @default(PENDENTE)
+  slug             String     @unique
+  destaque         Boolean?
+  usuario_id       String
+  usuario          User       @relation(fields: [usuario_id], references: [id])
+  imagens          Photos[]
+  opcionais        Optional[] @relation("AdvertsToOptional")
+
+  @@map("adverts")
+}
+
+model Optional {
+  id       String    @id @unique @default(uuid())
+  nome     String    @unique
+  anuncios Adverts[] @relation("AdvertsToOptional")
+
+  @@map("optional")
+}
+
+model Photos {
+  id         String  @id @default(uuid())
+  url        String
+  chave      String?
+  anuncio_id String
+  anuncio    Adverts @relation(fields: [anuncio_id], references: [id], onDelete: Cascade)
+
+  @@map("photos")
+}
+
+enum Condition {
+  ATIVO
+  INATIVO
+  PENDENTE
+}
+
+enum Plan {
+  GRATIS
+  BASICO
+  PRO
+}
