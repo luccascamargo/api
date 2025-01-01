@@ -4,6 +4,7 @@ import { UpdateAdvertDto } from './dto/update-advert.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import slugify from 'slugify';
 import { v4 as uuidv4 } from 'uuid';
+import { FilterAdvertsDto } from './dto/filter-advert.dto';
 
 @Injectable()
 export class AdvertService {
@@ -202,5 +203,75 @@ export class AdvertService {
     });
 
     return { message: 'Anuncio removido com sucesso' };
+  }
+
+  async filterAdverts(filter: FilterAdvertsDto) {
+    const where: any = {};
+
+    if (filter.tipo) {
+      where.tipo = { contains: filter.tipo, mode: 'insensitive' };
+    }
+    if (filter.marca) {
+      where.marca = { contains: filter.marca, mode: 'insensitive' };
+    }
+    if (filter.modelo) {
+      where.modelo = { contains: filter.modelo, mode: 'insensitive' };
+    }
+    if (filter.ano_modelo) {
+      where.ano_modelo = { equals: filter.ano_modelo };
+    }
+    if (filter.cor) {
+      where.cor = { contains: filter.cor, mode: 'insensitive' };
+    }
+    if (filter.cidade) {
+      where.cidade = { contains: filter.cidade, mode: 'insensitive' };
+    }
+    if (filter.preco_min !== undefined && filter.preco_max !== undefined) {
+      where.preco = { gte: filter.preco_min, lte: filter.preco_max };
+    } else if (filter.preco_min !== undefined) {
+      where.preco = { gte: filter.preco_min };
+    } else if (filter.preco_max !== undefined) {
+      where.preco = { lte: filter.preco_max };
+    }
+    if (filter.portas) {
+      where.portas = { contains: filter.portas, mode: 'insensitive' };
+    }
+    if (
+      filter.quilometragem_min !== undefined &&
+      filter.quilometragem_max !== undefined
+    ) {
+      where.quilometragem = {
+        gte: filter.quilometragem_min,
+        lte: filter.quilometragem_max,
+      };
+    } else if (filter.quilometragem_min !== undefined) {
+      where.quilometragem = { gte: filter.quilometragem_min };
+    } else if (filter.quilometragem_max !== undefined) {
+      where.quilometragem = { lte: filter.quilometragem_max };
+    }
+    if (filter.cambio) {
+      where.cambio = { contains: filter.cambio, mode: 'insensitive' };
+    }
+
+    where.status = 'ATIVO';
+
+    const adverts = await this.prismaService.adverts.findMany({
+      where,
+      include: {
+        imagens: true,
+        opcionais: true,
+        usuario: {
+          select: {
+            id: true,
+            nome: true,
+            email: true,
+            telefone: true,
+            data_criacao: true,
+          },
+        },
+      },
+    });
+
+    return adverts;
   }
 }

@@ -10,6 +10,7 @@ import {
 import { AdvertService } from './advert.service';
 import { CreateAdvertDto } from './dto/create-advert.dto';
 import { UpdateAdvertDto } from './dto/update-advert.dto';
+import { FilterAdvertsDto } from './dto/filter-advert.dto';
 
 @Controller('adverts')
 export class AdvertController {
@@ -33,5 +34,10 @@ export class AdvertController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.advertService.remove(id);
+  }
+
+  @Post('/filter')
+  filter(@Body() filterAdvertsDto: FilterAdvertsDto) {
+    return this.advertService.filterAdverts(filterAdvertsDto);
   }
 }
