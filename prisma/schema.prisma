@@ -69,7 +69,7 @@ model Adverts {
   cambio           String
   data_cricao      DateTime   @default(now()) @db.Timestamp(6)
   data_atualizacao DateTime?  @default(now()) @db.Timestamp(6)
-  condicao         Condition  @default(PENDENTE)
+  status           Status     @default(PENDENTE)
   slug             String     @unique
   destaque         Boolean?
   usuario_id       String
@@ -91,14 +91,13 @@ model Optional {
 model Photos {
   id         String  @id @default(uuid())
   url        String
-  chave      String?
   anuncio_id String
   anuncio    Adverts @relation(fields: [anuncio_id], references: [id], onDelete: Cascade)
 
   @@map("photos")
 }
 
-enum Condition {
+enum Status {
   ATIVO
   INATIVO
   PENDENTE
