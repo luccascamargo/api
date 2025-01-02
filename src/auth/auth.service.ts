@@ -8,12 +8,14 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { SigninAuthDto } from './dto/sigin-auth.dto';
+import { StripeService } from 'src/stripe/stripe.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly stripeService: StripeService,
   ) {}
 
   async signup(createAuthDto: CreateAuthDto) {
@@ -24,7 +26,16 @@ export class AuthService {
     });
 
     if (userAlreadyExists) {
-      return new BadRequestException();
+      return new BadRequestException('Usuário já existe');
+    }
+
+    const customer = await this.stripeService.stripe.customers.create({
+      name: `${createAuthDto.nome} ${createAuthDto.sobrenome}`,
+      email: createAuthDto.email,
+    });
+
+    if (!customer) {
+      return new BadRequestException('Erro ao criar o cliente no Stripe');
     }
 
     const passwordHash = await bcrypt.hash(createAuthDto.senha, 10);
@@ -36,7 +47,7 @@ export class AuthService {
         nome: createAuthDto.nome,
         sobrenome: createAuthDto.sobrenome,
         senha: passwordHash,
-        stripe_id: Date.now().toString(),
+        stripe_id: customer.id,
       },
     });
 

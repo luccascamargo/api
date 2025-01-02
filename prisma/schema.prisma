@@ -39,7 +39,7 @@ model RefreshToken {
 model Subscription {
   id                String   @unique @default(uuid())
   status            Boolean
-  inscricao_id      String?
+  inscricao_id      String?  @unique
   usuario_id        String
   stripe_produto_id String?
   data_atualizacao  DateTime @default(now()) @db.Timestamp(6)
@@ -73,7 +73,7 @@ model Adverts {
   slug             String     @unique
   destaque         Boolean?
   usuario_id       String
-  usuario          User       @relation(fields: [usuario_id], references: [id])
+  usuario          User       @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
   imagens          Photos[]
   opcionais        Optional[] @relation("AdvertsToOptional")
 
