@@ -26,6 +26,11 @@ export class AdvertController {
     return this.advertService.findOne(id);
   }
 
+  @Get('/advertsWithEmail/:email')
+  findManyWithEmail(@Param('email') email: string) {
+    return this.advertService.findManyWithEmail(email);
+  }
+
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateAdvertDto: UpdateAdvertDto) {
     return this.advertService.update(id, updateAdvertDto);

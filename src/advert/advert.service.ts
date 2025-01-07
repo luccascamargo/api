@@ -125,6 +125,30 @@ export class AdvertService {
     return advert;
   }
 
+  async findManyWithEmail(email: string) {
+    const user = await this.prismaService.user.findFirst({
+      where: {
+        email,
+      },
+      include: {
+        anuncios: {
+          where: {
+            status: 'ATIVO',
+          },
+          include: {
+            imagens: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Usuário não encontrado');
+    }
+
+    return user.anuncios;
+  }
+
   async update(id: string, updateAdvertDto: UpdateAdvertDto) {
     const advert = await this.prismaService.adverts.findUnique({
       where: {
