@@ -9,6 +9,7 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { SigninAuthDto } from './dto/sigin-auth.dto';
 import { StripeService } from 'src/stripe/stripe.service';
+import { UpdateAuthDto } from './dto/update-auth.dto';
 
 @Injectable()
 export class AuthService {
@@ -109,5 +110,68 @@ export class AuthService {
     });
 
     return { accessToken, refreshToken };
+  }
+
+  async update(updateAuthDto: UpdateAuthDto) {
+    let newPasswordHash: string;
+    const userAlreadyExists = await this.prismaService.user.findUnique({
+      where: {
+        email: updateAuthDto.email,
+      },
+    });
+
+    if (!userAlreadyExists) {
+      return new BadRequestException();
+    }
+
+    const comparePassword = await bcrypt.compare(
+      updateAuthDto.senha,
+      userAlreadyExists.senha,
+    );
+
+    if (!comparePassword) {
+      return new UnauthorizedException();
+    }
+
+    if (updateAuthDto.novaSenha) {
+      newPasswordHash = await bcrypt.hash(updateAuthDto.novaSenha, 10);
+    }
+
+    const user = await this.prismaService.user.update({
+      where: {
+        id: userAlreadyExists.id,
+      },
+      data: {
+        nome: updateAuthDto.nome,
+        sobrenome: updateAuthDto.sobrenome,
+        senha: newPasswordHash ? newPasswordHash : userAlreadyExists.senha,
+        telefone: updateAuthDto.telefone,
+      },
+    });
+
+    return user;
+  }
+
+  async delete(email: string) {
+    const userAlreadyExists = await this.prismaService.user.findUnique({
+      where: {
+        email: email,
+      },
+    });
+
+    if (!userAlreadyExists) {
+      return new BadRequestException();
+    }
+
+    await this.prismaService.user.update({
+      where: {
+        id: userAlreadyExists.id,
+      },
+      data: {
+        ativo: false,
+      },
+    });
+
+    return { message: 'Usuário deletado com sucesso' };
   }
 }
