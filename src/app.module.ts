@@ -7,6 +7,7 @@ import { AdvertModule } from './advert/advert.module';
 import { StripeModule } from './stripe/stripe.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { FipeModule } from './fipe/fipe.module';
+import { UserModule } from './user/user.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { FipeModule } from './fipe/fipe.module';
       dbName: 'igarageapp',
     }),
     FipeModule,
+    UserModule,
   ],
   controllers: [AppController],
   providers: [AppService],
