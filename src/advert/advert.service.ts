@@ -49,7 +49,9 @@ export class AdvertService implements IAdvertService {
 
     const slug = slugify(
       `${createAdvertDto.marca}-${createAdvertDto.modelo}
-        -${createAdvertDto.ano_modelo}-${uuidv4()}`,
+        -${createAdvertDto.ano_modelo}-${uuidv4()}
+          -${createAdvertDto.cidade}
+            -${createAdvertDto.estado}`,
       { lower: true, strict: true },
     );
 
