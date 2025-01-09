@@ -8,6 +8,7 @@ import { StripeModule } from './stripe/stripe.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { FipeModule } from './fipe/fipe.module';
 import { UserModule } from './user/user.module';
+import { OptionalsModule } from './optionals/optionals.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { UserModule } from './user/user.module';
     }),
     FipeModule,
     UserModule,
+    OptionalsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
