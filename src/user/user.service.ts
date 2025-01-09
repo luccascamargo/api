@@ -1,17 +1,23 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StripeService } from 'src/stripe/stripe.service';
 import * as bcrypt from 'bcrypt';
+import { IUserService } from './interface/user.interface';
+import { User } from '@prisma/client';
 
 @Injectable()
-export class UserService {
+export class UserService implements IUserService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly stripeService: StripeService,
   ) {}
-  async create(createUserDto: CreateUserDto) {
+  async create(createUserDto: CreateUserDto): Promise<User> {
     const userAlreadyExists = await this.prismaService.user.findUnique({
       where: {
         email: createUserDto.email,
@@ -19,7 +25,7 @@ export class UserService {
     });
 
     if (userAlreadyExists) {
-      return new BadRequestException('Usuário já existe');
+      throw new BadRequestException('Usuário já existe');
     }
 
     const customer = await this.stripeService.stripe.customers.create({
@@ -28,7 +34,7 @@ export class UserService {
     });
 
     if (!customer) {
-      return new BadRequestException('Erro ao criar o cliente no Stripe');
+      throw new BadRequestException('Erro ao criar o cliente no Stripe');
     }
 
     const passwordHash = await bcrypt.hash(createUserDto.senha, 10);
@@ -47,34 +53,117 @@ export class UserService {
     return user;
   }
 
-  async findAll() {
+  async findAll(): Promise<User[] | []> {
     const users = await this.prismaService.user.findMany();
     return users;
   }
 
-  async update(updateUserDto: UpdateUserDto) {
-    const user = await this.prismaService.user.findUnique({
+  async update(UpdateUserDto: UpdateUserDto): Promise<User> {
+    let newPasswordHash: string;
+    const userAlreadyExists = await this.prismaService.user.findUnique({
       where: {
-        email: updateUserDto.email,
+        email: UpdateUserDto.email,
       },
     });
 
-    if (!user) {
-      return new BadRequestException('Usuário não encontrado');
+    if (!userAlreadyExists) {
+      throw new BadRequestException();
     }
 
-    const updatedUser = await this.prismaService.user.update({
+    const comparePassword = await bcrypt.compare(
+      UpdateUserDto.senha,
+      userAlreadyExists.senha,
+    );
+
+    if (!comparePassword) {
+      throw new UnauthorizedException();
+    }
+
+    if (UpdateUserDto.novaSenha) {
+      newPasswordHash = await bcrypt.hash(UpdateUserDto.novaSenha, 10);
+    }
+
+    const user = await this.prismaService.user.update({
       where: {
-        email: updateUserDto.email,
+        id: userAlreadyExists.id,
       },
       data: {
-        nome: updateUserDto.nome || user.nome,
-        sobrenome: updateUserDto.sobrenome || user.sobrenome,
-        telefone: updateUserDto.telefone || user.telefone,
-        ativo: updateUserDto.ativo || user.ativo,
+        nome: UpdateUserDto.nome,
+        sobrenome: UpdateUserDto.sobrenome,
+        senha: newPasswordHash ? newPasswordHash : userAlreadyExists.senha,
+        telefone: UpdateUserDto.telefone,
       },
     });
 
-    return updatedUser;
+    return user;
+  }
+
+  async delete(email: string): Promise<{ message: string }> {
+    const userAlreadyExists = await this.prismaService.user.findUnique({
+      where: {
+        email: email,
+      },
+    });
+
+    if (!userAlreadyExists) {
+      throw new BadRequestException();
+    }
+
+    await this.prismaService.user.update({
+      where: {
+        id: userAlreadyExists.id,
+      },
+      data: {
+        ativo: false,
+      },
+    });
+
+    return { message: 'Usuário deletado com sucesso' };
+  }
+
+  async active(email: string): Promise<User> {
+    const userAlreadyExists = await this.prismaService.user.findUnique({
+      where: {
+        email,
+      },
+    });
+
+    if (!userAlreadyExists) {
+      throw new BadRequestException();
+    }
+
+    const user = await this.prismaService.user.update({
+      where: {
+        email,
+      },
+      data: {
+        ativo: true,
+      },
+    });
+
+    return user;
+  }
+
+  async desactive(email: string): Promise<User> {
+    const userAlreadyExists = await this.prismaService.user.findUnique({
+      where: {
+        email,
+      },
+    });
+
+    if (!userAlreadyExists) {
+      throw new BadRequestException();
+    }
+
+    const user = await this.prismaService.user.update({
+      where: {
+        email,
+      },
+      data: {
+        ativo: false,
+      },
+    });
+
+    return user;
   }
 }

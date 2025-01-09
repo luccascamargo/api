@@ -2,13 +2,19 @@ import { Injectable } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
 import axios from 'axios';
+import {
+  FipeServiceInterface,
+  IFindBrandsReturn,
+  IFindModelsReturn,
+  IFindYearsReturn,
+} from './interface/fipe.interface';
 
 const URL_BASE = 'https://veiculos.fipe.org.br/api/veiculos/';
 const cacheEnabled = Boolean(process.env.CACHE_ENABLED === 'true') || false;
 const dataTable = process.env.FIPE_TABLE || 317; // Janeiro/2025;
 
 @Injectable()
-export class FipeService {
+export class FipeService implements FipeServiceInterface {
   constructor(@InjectConnection() private connection: Connection) {}
 
   findTypes() {
@@ -20,11 +26,11 @@ export class FipeService {
     return types;
   }
 
-  async findBrands(type: string) {
-    const tableName = 'marcas';
+  async findBrands(type: string): Promise<IFindBrandsReturn[]> {
+    const tableName = 'brands';
 
     let dataCached: any = [];
-    let data: any = {};
+    let data: IFindBrandsReturn[] = [];
 
     try {
       const payload = {
@@ -49,21 +55,16 @@ export class FipeService {
         });
         data = resp.data;
 
-        if (data.length > 0) {
-          data.forEach(function (element: any) {
-            Object.assign(element, {
-              ...payload,
-              updatedAt: new Date(),
-            });
-          });
-          if (cacheEnabled) {
-            try {
-              (await this.connection.createCollection(tableName)).insertMany(
-                data,
-              );
-            } catch {
-              throw new Error('Erro ao cadastrar as marcas no mongodb');
-            }
+        if (cacheEnabled && data?.length > 0) {
+          try {
+            const collection = this.connection.collection(tableName);
+            await collection.deleteMany({});
+            const newCollection =
+              await this.connection.createCollection(tableName);
+
+            newCollection.insertMany(data);
+          } catch {
+            throw new Error('Erro ao cadastrar as marcas no mongodb');
           }
         }
       }
@@ -73,7 +74,7 @@ export class FipeService {
     }
   }
 
-  async findModels(type: string, brand: string) {
+  async findModels(type: string, brand: string): Promise<IFindModelsReturn[]> {
     const tableName = 'models';
 
     try {
@@ -84,7 +85,7 @@ export class FipeService {
       };
 
       let dataCached: any = [];
-      let data: any = {};
+      let data: IFindModelsReturn[] = [];
 
       if (cacheEnabled) {
         dataCached = await this.connection
@@ -96,46 +97,41 @@ export class FipeService {
       }
 
       if (dataCached?.length > 0 && cacheEnabled) {
-        data.Modelos = dataCached;
+        data = dataCached;
       } else {
         const resp = await axios.post(URL_BASE + 'ConsultarModelos', payload, {
           headers: {
             'Content-Type': 'application/json',
           },
         });
-        data = resp.data;
+        data = resp.data.Modelos;
 
-        if (data?.Modelos?.length > 0) {
-          data?.Modelos.forEach(function (element: any) {
-            Object.assign(element, { ...payload, updatedAt: new Date() });
-          });
-          if (cacheEnabled) {
-            try {
-              const newCollection =
-                await this.connection.createCollection(tableName);
+        if (cacheEnabled && data?.length > 0) {
+          try {
+            const collection = this.connection.collection(tableName);
+            await collection.deleteMany({});
+            const newCollection =
+              await this.connection.createCollection(tableName);
 
-              newCollection.insertMany(data.Modelos);
-            } catch {
-              throw new Error('Erro ao cadastrar os modelos no mongodb');
-            }
+            newCollection.insertMany(data);
+          } catch {
+            throw new Error('Erro ao cadastrar os modelos no mongodb');
           }
         }
       }
 
-      const ret = {
-        type: type,
-        brand: brand,
-        data: data.Modelos,
-      };
-      return ret;
+      return data;
     } catch (error) {
       console.log(error);
-      const ret = { success: false, error };
-      return ret;
+      throw new Error('Erro ao lidar com os modelos');
     }
   }
 
-  async findYears(type: string, brand: string, model: string) {
+  async findYears(
+    type: string,
+    brand: string,
+    model: string,
+  ): Promise<IFindYearsReturn[]> {
     const tableName = 'years';
 
     try {
@@ -148,7 +144,7 @@ export class FipeService {
       };
 
       let dataCached: any = [];
-      let data: any = {};
+      let data: IFindYearsReturn[] = [];
 
       if (cacheEnabled) {
         dataCached = await this.connection
@@ -173,35 +169,24 @@ export class FipeService {
         );
         data = resp.data;
 
-        if (data?.length > 0) {
-          data.forEach(function (element: any) {
-            Object.assign(element, { ...payload, updatedAt: new Date() });
-          });
-          if (cacheEnabled) {
-            try {
-              const newCollection =
-                await this.connection.createCollection(tableName);
+        if (cacheEnabled && data?.length > 0) {
+          try {
+            const collection = this.connection.collection(tableName);
+            await collection.deleteMany({});
+            const newCollection =
+              await this.connection.createCollection(tableName);
 
-              newCollection.insertMany(data);
-            } catch {
-              throw new Error('Erro ao cadastrar os anos no mongodb');
-            }
+            newCollection.insertMany(data);
+          } catch {
+            throw new Error('Erro ao cadastrar os anos no mongodb');
           }
         }
       }
 
-      const ret = {
-        success: true,
-        updatedAt: new Date(),
-        type: type,
-        brand,
-        model,
-        data,
-      };
-      return ret;
+      return data;
     } catch (error) {
-      const ret = { success: false, error };
-      return ret;
+      console.log(error);
+      throw new Error('Erro ao lidar com os anos');
     }
   }
 }

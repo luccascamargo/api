@@ -151,7 +151,5 @@ export class StripeService {
       default:
         console.log(`Tipo de evento desconhecido ${event.type}.`);
     }
-
-    return { received: true };
   }
 }

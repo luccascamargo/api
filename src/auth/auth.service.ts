@@ -7,19 +7,21 @@ import { CreateAuthDto } from './dto/create-auth.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
-import { SigninAuthDto } from './dto/sigin-auth.dto';
+import { SigninAuthDto } from './dto/signin-auth.dto';
 import { StripeService } from 'src/stripe/stripe.service';
-import { UpdateAuthDto } from './dto/update-auth.dto';
+import { IAuthService } from './interface/auth.interface';
 
 @Injectable()
-export class AuthService {
+export class AuthService implements IAuthService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly jwtService: JwtService,
     private readonly stripeService: StripeService,
   ) {}
 
-  async signup(createAuthDto: CreateAuthDto) {
+  async register(
+    createAuthDto: CreateAuthDto,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     const userAlreadyExists = await this.prismaService.user.findUnique({
       where: {
         email: createAuthDto.email,
@@ -27,7 +29,7 @@ export class AuthService {
     });
 
     if (userAlreadyExists) {
-      return new BadRequestException('Usuário já existe');
+      throw new BadRequestException('Usuário já existe');
     }
 
     const customer = await this.stripeService.stripe.customers.create({
@@ -36,7 +38,7 @@ export class AuthService {
     });
 
     if (!customer) {
-      return new BadRequestException('Erro ao criar o cliente no Stripe');
+      throw new BadRequestException('Erro ao criar o cliente no Stripe');
     }
 
     const passwordHash = await bcrypt.hash(createAuthDto.senha, 10);
@@ -72,7 +74,9 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
-  async signin(signinAuthDto: SigninAuthDto) {
+  async login(
+    signinAuthDto: SigninAuthDto,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     const userAlreadyExists = await this.prismaService.user.findUnique({
       where: {
         email: signinAuthDto.email,
@@ -80,7 +84,7 @@ export class AuthService {
     });
 
     if (!userAlreadyExists) {
-      return new BadRequestException();
+      throw new BadRequestException();
     }
 
     const comparePassword = await bcrypt.compare(
@@ -89,7 +93,7 @@ export class AuthService {
     );
 
     if (!comparePassword) {
-      return new UnauthorizedException();
+      throw new UnauthorizedException();
     }
 
     const payload = {
@@ -110,68 +114,5 @@ export class AuthService {
     });
 
     return { accessToken, refreshToken };
-  }
-
-  async update(updateAuthDto: UpdateAuthDto) {
-    let newPasswordHash: string;
-    const userAlreadyExists = await this.prismaService.user.findUnique({
-      where: {
-        email: updateAuthDto.email,
-      },
-    });
-
-    if (!userAlreadyExists) {
-      return new BadRequestException();
-    }
-
-    const comparePassword = await bcrypt.compare(
-      updateAuthDto.senha,
-      userAlreadyExists.senha,
-    );
-
-    if (!comparePassword) {
-      return new UnauthorizedException();
-    }
-
-    if (updateAuthDto.novaSenha) {
-      newPasswordHash = await bcrypt.hash(updateAuthDto.novaSenha, 10);
-    }
-
-    const user = await this.prismaService.user.update({
-      where: {
-        id: userAlreadyExists.id,
-      },
-      data: {
-        nome: updateAuthDto.nome,
-        sobrenome: updateAuthDto.sobrenome,
-        senha: newPasswordHash ? newPasswordHash : userAlreadyExists.senha,
-        telefone: updateAuthDto.telefone,
-      },
-    });
-
-    return user;
-  }
-
-  async delete(email: string) {
-    const userAlreadyExists = await this.prismaService.user.findUnique({
-      where: {
-        email: email,
-      },
-    });
-
-    if (!userAlreadyExists) {
-      return new BadRequestException();
-    }
-
-    await this.prismaService.user.update({
-      where: {
-        id: userAlreadyExists.id,
-      },
-      data: {
-        ativo: false,
-      },
-    });
-
-    return { message: 'Usuário deletado com sucesso' };
   }
 }

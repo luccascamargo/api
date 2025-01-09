@@ -5,9 +5,10 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import slugify from 'slugify';
 import { v4 as uuidv4 } from 'uuid';
 import { FilterAdvertsDto } from './dto/filter-advert.dto';
+import { IAdvertService } from './interface/advert.interface';
 
 @Injectable()
-export class AdvertService {
+export class AdvertService implements IAdvertService {
   constructor(private readonly prismaService: PrismaService) {}
 
   async create(createAdvertDto: CreateAdvertDto) {
