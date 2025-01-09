@@ -15,7 +15,11 @@ export class FilterAdvertsDto {
 
   @IsOptional()
   @IsNumber({}, { message: 'O campo ano_modelo deve ser um número' })
-  ano_modelo?: number;
+  ano_modelo_min?: number;
+
+  @IsOptional()
+  @IsNumber({}, { message: 'O campo ano_modelo deve ser um número' })
+  ano_modelo_max?: number;
 
   @IsOptional()
   @IsString({ message: 'O campo cor deve ser uma string' })

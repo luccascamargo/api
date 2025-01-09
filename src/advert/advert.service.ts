@@ -231,57 +231,95 @@ export class AdvertService implements IAdvertService {
   }
 
   async filterAdverts(filter: FilterAdvertsDto) {
-    const where: any = {};
-
-    if (filter.tipo) {
-      where.tipo = { contains: filter.tipo, mode: 'insensitive' };
-    }
-    if (filter.marca) {
-      where.marca = { contains: filter.marca, mode: 'insensitive' };
-    }
-    if (filter.modelo) {
-      where.modelo = { contains: filter.modelo, mode: 'insensitive' };
-    }
-    if (filter.ano_modelo) {
-      where.ano_modelo = { equals: filter.ano_modelo };
-    }
-    if (filter.cor) {
-      where.cor = { contains: filter.cor, mode: 'insensitive' };
-    }
-    if (filter.cidade) {
-      where.cidade = { contains: filter.cidade, mode: 'insensitive' };
-    }
-    if (filter.preco_min !== undefined && filter.preco_max !== undefined) {
-      where.preco = { gte: filter.preco_min, lte: filter.preco_max };
-    } else if (filter.preco_min !== undefined) {
-      where.preco = { gte: filter.preco_min };
-    } else if (filter.preco_max !== undefined) {
-      where.preco = { lte: filter.preco_max };
-    }
-    if (filter.portas) {
-      where.portas = { contains: filter.portas, mode: 'insensitive' };
-    }
-    if (
-      filter.quilometragem_min !== undefined &&
-      filter.quilometragem_max !== undefined
-    ) {
-      where.quilometragem = {
-        gte: filter.quilometragem_min,
-        lte: filter.quilometragem_max,
-      };
-    } else if (filter.quilometragem_min !== undefined) {
-      where.quilometragem = { gte: filter.quilometragem_min };
-    } else if (filter.quilometragem_max !== undefined) {
-      where.quilometragem = { lte: filter.quilometragem_max };
-    }
-    if (filter.cambio) {
-      where.cambio = { contains: filter.cambio, mode: 'insensitive' };
-    }
-
-    where.status = 'ATIVO';
-
     const adverts = await this.prismaService.adverts.findMany({
-      where,
+      orderBy: [
+        {
+          preco: 'asc',
+        },
+        {
+          quilometragem: 'asc',
+        },
+      ],
+      where: {
+        status: {
+          equals: 'ATIVO',
+        },
+        AND: [
+          {
+            opcionais: {
+              some: {
+                AND:
+                  filter.opcionais.length > 0
+                    ? filter.opcionais.map((id) => ({ id }))
+                    : [],
+              },
+            },
+          },
+          filter.cidade
+            ? {
+                cidade: {
+                  equals: filter.cidade,
+                  mode: 'insensitive',
+                },
+              }
+            : {},
+          filter.tipo
+            ? {
+                tipo: {
+                  contains: filter.tipo,
+                  mode: 'insensitive',
+                },
+              }
+            : {},
+          filter.marca
+            ? {
+                marca: {
+                  contains: filter.marca,
+                  mode: 'insensitive',
+                },
+              }
+            : {},
+          filter.modelo
+            ? {
+                modelo: {
+                  contains: filter.modelo,
+                  mode: 'insensitive',
+                },
+              }
+            : {},
+          filter.cor
+            ? {
+                cor: {
+                  contains: filter.cor,
+                  mode: 'insensitive',
+                },
+              }
+            : {},
+          filter.portas ? { portas: filter.portas } : {},
+          filter.cambio
+            ? {
+                cambio: {
+                  contains: filter.cambio,
+                  mode: 'insensitive',
+                },
+              }
+            : {},
+          filter.preco_min ? { preco: { gte: Number(filter.preco_min) } } : {},
+          filter.preco_max ? { preco: { lte: Number(filter.preco_max) } } : {},
+          filter.quilometragem_max
+            ? { quilometragem: { lte: Number(filter.quilometragem_max) } }
+            : {},
+          filter.quilometragem_min
+            ? { quilometragem: { gte: Number(filter.quilometragem_min) } }
+            : {},
+          filter.ano_modelo_max
+            ? { ano_modelo: { lte: Number(filter.ano_modelo_max) } }
+            : {},
+          filter.ano_modelo_min
+            ? { ano_modelo: { gte: Number(filter.ano_modelo_min) } }
+            : {},
+        ],
+      },
       include: {
         imagens: true,
         opcionais: true,
