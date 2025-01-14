@@ -22,7 +22,7 @@ import { AuthMiddleware } from './auth/auth.middleware';
     PrismaModule,
     AdvertModule,
     StripeModule,
-    MongooseModule.forRoot('mongodb://admin:admin@localhost:27017/', {
+    MongooseModule.forRoot('mongodb://localhost:27017/igarageapp', {
       autoCreate: true,
       dbName: 'igarageapp',
     }),
