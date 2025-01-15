@@ -6,17 +6,22 @@ import {
   Patch,
   Param,
   Delete,
+  UseGuards,
 } from '@nestjs/common';
 import { AdvertService } from './advert.service';
 import { CreateAdvertDto } from './dto/create-advert.dto';
 import { UpdateAdvertDto } from './dto/update-advert.dto';
 import { FilterAdvertsDto } from './dto/filter-advert.dto';
+import { User } from 'src/decorators/user.decorator';
+import { UserPayload } from 'src/auth/types/userPayload';
+import { AuthGuard } from 'src/auth/auth.guard';
 
 @Controller('adverts')
 export class AdvertController {
   constructor(private readonly advertService: AdvertService) {}
 
   @Post()
+  @UseGuards(AuthGuard)
   create(@Body() createAdvertDto: CreateAdvertDto) {
     return this.advertService.create(createAdvertDto);
   }
@@ -32,13 +37,19 @@ export class AdvertController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateAdvertDto: UpdateAdvertDto) {
-    return this.advertService.update(id, updateAdvertDto);
+  @UseGuards(AuthGuard)
+  update(
+    @User() user: UserPayload,
+    @Param('id') id: string,
+    @Body() updateAdvertDto: UpdateAdvertDto,
+  ) {
+    return this.advertService.update(user, id, updateAdvertDto);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.advertService.remove(id);
+  @UseGuards(AuthGuard)
+  remove(@User() user: UserPayload, @Param('id') id: string) {
+    return this.advertService.remove(id, user);
   }
 
   @Post('/filter')

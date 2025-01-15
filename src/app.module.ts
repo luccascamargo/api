@@ -1,9 +1,4 @@
-import {
-  MiddlewareConsumer,
-  Module,
-  NestModule,
-  RequestMethod,
-} from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -14,7 +9,6 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { FipeModule } from './fipe/fipe.module';
 import { UserModule } from './user/user.module';
 import { OptionalsModule } from './optionals/optionals.module';
-import { AuthMiddleware } from './auth/auth.middleware';
 
 @Module({
   imports: [
@@ -33,15 +27,4 @@ import { AuthMiddleware } from './auth/auth.middleware';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(AuthMiddleware)
-      .forRoutes(
-        { path: '/adverts', method: RequestMethod.POST },
-        { path: '/adverts', method: RequestMethod.DELETE },
-        { path: '/adverts', method: RequestMethod.PATCH },
-        { path: '/user', method: RequestMethod.PATCH },
-      );
-  }
-}
+export class AppModule {}

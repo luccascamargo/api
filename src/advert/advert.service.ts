@@ -6,6 +6,7 @@ import slugify from 'slugify';
 import { v4 as uuidv4 } from 'uuid';
 import { FilterAdvertsDto } from './dto/filter-advert.dto';
 import { IAdvertService } from './interface/advert.interface';
+import { UserPayload } from 'src/auth/types/userPayload';
 
 @Injectable()
 export class AdvertService implements IAdvertService {
@@ -152,10 +153,15 @@ export class AdvertService implements IAdvertService {
     return user.anuncios;
   }
 
-  async update(id: string, updateAdvertDto: UpdateAdvertDto) {
+  async update(
+    user: UserPayload,
+    id: string,
+    updateAdvertDto: UpdateAdvertDto,
+  ) {
     const advert = await this.prismaService.adverts.findUnique({
       where: {
         id,
+        usuario_id: user.sub,
       },
       include: {
         imagens: true,
@@ -202,15 +208,20 @@ export class AdvertService implements IAdvertService {
         quilometragem: updateAdvertDto.quilometragem || advert.quilometragem,
         data_atualizacao: new Date(),
       },
+      include: {
+        imagens: true,
+        opcionais: true,
+      },
     });
 
     return advertUpdate;
   }
 
-  async remove(id: string) {
+  async remove(id: string, user: UserPayload) {
     const advert = await this.prismaService.adverts.findUnique({
       where: {
         id,
+        usuario_id: user.sub,
       },
       include: {
         imagens: true,
