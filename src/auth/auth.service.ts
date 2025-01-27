@@ -21,7 +21,7 @@ export class AuthService implements IAuthService {
 
   async register(
     createAuthDto: CreateAuthDto,
-  ): Promise<{ accessToken: string; refreshToken: string }> {
+  ): Promise<{ accessToken: string }> {
     const userAlreadyExists = await this.prismaService.user.findUnique({
       where: {
         email: createAuthDto.email,
@@ -56,7 +56,6 @@ export class AuthService implements IAuthService {
 
     const payload = {
       sub: user.id,
-      email: user.email,
     };
 
     const accessToken = await this.jwtService.signAsync(payload);
@@ -71,12 +70,10 @@ export class AuthService implements IAuthService {
       },
     });
 
-    return { accessToken, refreshToken };
+    return { accessToken };
   }
 
-  async login(
-    signinAuthDto: SigninAuthDto,
-  ): Promise<{ accessToken: string; refreshToken: string }> {
+  async login(signinAuthDto: SigninAuthDto): Promise<{ accessToken: string }> {
     const userAlreadyExists = await this.prismaService.user.findUnique({
       where: {
         email: signinAuthDto.email,
@@ -98,7 +95,6 @@ export class AuthService implements IAuthService {
 
     const payload = {
       sub: userAlreadyExists.id,
-      email: userAlreadyExists.email,
     };
 
     const accessToken = await this.jwtService.signAsync(payload);
@@ -113,6 +109,28 @@ export class AuthService implements IAuthService {
       },
     });
 
-    return { accessToken, refreshToken };
+    return { accessToken };
+  }
+
+  async getMe(id: string) {
+    const userAlreadyExists = await this.prismaService.user.findUnique({
+      where: {
+        id,
+      },
+      select: {
+        nome: true,
+        sobrenome: true,
+        email: true,
+        imagem: true,
+        telefone: true,
+        plano: true,
+      },
+    });
+
+    if (!userAlreadyExists) {
+      throw new BadRequestException();
+    }
+
+    return userAlreadyExists;
   }
 }

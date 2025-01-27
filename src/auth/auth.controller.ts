@@ -1,19 +1,41 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseInterceptors,
+  HttpCode,
+  Get,
+  Param,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import { SigninAuthDto } from './dto/signin-auth.dto';
+import { CookieInterceptor } from './auth.interceptor';
 
 @Controller('auth')
+@UseInterceptors(CookieInterceptor)
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('/signup')
-  signup(@Body() createAuthDto: CreateAuthDto) {
-    return this.authService.register(createAuthDto);
+  @HttpCode(201)
+  async signup(@Body() createAuthDto: CreateAuthDto) {
+    const { accessToken } = await this.authService.register(createAuthDto);
+
+    return { accessToken };
   }
 
   @Post('/signin')
-  signin(@Body() siginAuthDto: SigninAuthDto) {
-    return this.authService.login(siginAuthDto);
+  @HttpCode(200)
+  async signin(@Body() siginAuthDto: SigninAuthDto) {
+    const { accessToken } = await this.authService.login(siginAuthDto);
+
+    return { accessToken };
+  }
+
+  @Get(`/me/:id`)
+  @HttpCode(200)
+  async me(@Param('id') id: string) {
+    return this.authService.getMe(id);
   }
 }
