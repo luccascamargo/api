@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { FilterAdvertsDto } from './dto/filter-advert.dto';
 import { IAdvertService } from './interface/advert.interface';
 import { UserPayload } from 'src/auth/types/userPayload';
+import { normalizeText } from 'src/utils/formatedText';
 
 @Injectable()
 export class AdvertService implements IAdvertService {
@@ -48,6 +49,12 @@ export class AdvertService implements IAdvertService {
       url: imagem,
     }));
 
+    const formatedDescription = normalizeText(createAdvertDto.descricao);
+
+    const formatedCity = normalizeText(createAdvertDto.cidade);
+
+    const formatedState = normalizeText(createAdvertDto.estado);
+
     const slug = slugify(
       `${createAdvertDto.marca}-${createAdvertDto.modelo}
         -${createAdvertDto.ano_modelo}-${uuidv4()}
@@ -64,7 +71,9 @@ export class AdvertService implements IAdvertService {
         cambio: createAdvertDto.cambio,
         cep: createAdvertDto.cep,
         cidade: createAdvertDto.cidade,
+        cidade_formatada: formatedCity,
         cor: createAdvertDto.cor,
+        estado_formatado: formatedState,
         estado: createAdvertDto.estado,
         placa: createAdvertDto.placa,
         portas: createAdvertDto.portas,
@@ -75,6 +84,7 @@ export class AdvertService implements IAdvertService {
         data_atualizacao: new Date(),
         data_cricao: new Date(),
         descricao: createAdvertDto.descricao,
+        descricao_formatada: formatedDescription,
         destaque: false,
         status: 'PENDENTE',
         imagens: {
@@ -178,6 +188,10 @@ export class AdvertService implements IAdvertService {
       url: imagem,
     }));
 
+    const formatedDescription = normalizeText(updateAdvertDto.descricao);
+
+    const formatedCity = normalizeText(updateAdvertDto.cidade);
+
     const advertUpdate = await this.prismaService.adverts.update({
       where: {
         id: advert.id,
@@ -186,8 +200,10 @@ export class AdvertService implements IAdvertService {
         cambio: updateAdvertDto.cambio || advert.cambio,
         cep: updateAdvertDto.cep || advert.cep,
         cidade: updateAdvertDto.cidade || advert.cidade,
+        cidade_formatada: formatedCity,
         cor: updateAdvertDto.cor || advert.cor,
         descricao: updateAdvertDto.descricao || advert.descricao,
+        descricao_formatada: formatedDescription,
         estado: updateAdvertDto.estado || advert.estado,
         imagens: {
           deleteMany: {},
@@ -243,103 +259,135 @@ export class AdvertService implements IAdvertService {
     return { message: 'Anuncio removido com sucesso' };
   }
 
-  async filterAdverts(filter: FilterAdvertsDto) {
+  async filterAdverts(filterAdvertsDto: FilterAdvertsDto) {
+    const {
+      busca,
+      page = 1,
+      limit = 10,
+      ano_modelo_max,
+      ano_modelo_min,
+      cambio,
+      cidade,
+      cor,
+      marca,
+      estado,
+      modelo,
+      opcionais,
+      portas,
+      preco_max,
+      preco_min,
+      quilometragem_max,
+      quilometragem_min,
+      tipo,
+    } = filterAdvertsDto;
+
+    let optionalsRefactored: Array<string> = [];
+
+    if (opcionais) {
+      optionalsRefactored = opcionais.split(',').map((opc) => opc);
+    }
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const searchTerms = busca?.split(' ');
+
     const adverts = await this.prismaService.adverts.findMany({
-      orderBy: [
-        {
-          preco: 'asc',
-        },
-        {
-          quilometragem: 'asc',
-        },
-      ],
+      skip,
+      take: Number(limit),
+      orderBy: { data_cricao: 'desc' },
       where: {
-        status: {
-          equals: 'ATIVO',
-        },
         AND: [
-          {
-            opcionais: {
-              some: {
-                AND:
-                  filter.opcionais.length > 0
-                    ? filter.opcionais.map((id) => ({ id }))
-                    : [],
-              },
-            },
-          },
-          filter.cidade
+          { status: 'ATIVO' },
+          searchTerms
             ? {
-                cidade: {
-                  equals: filter.cidade,
+                OR: searchTerms.flatMap((term) => [
+                  {
+                    modelo: {
+                      contains: normalizeText(term),
+                      mode: 'insensitive',
+                    },
+                  },
+                  {
+                    marca: {
+                      contains: normalizeText(term),
+                      mode: 'insensitive',
+                    },
+                  },
+                  {
+                    cor: { contains: normalizeText(term), mode: 'insensitive' },
+                  },
+                  {
+                    cambio: {
+                      contains: normalizeText(term),
+                      mode: 'insensitive',
+                    },
+                  },
+                  {
+                    cidade_formatada: {
+                      contains: normalizeText(term),
+                      mode: 'insensitive',
+                    },
+                  },
+                  {
+                    estado: {
+                      contains: normalizeText(term),
+                      mode: 'insensitive',
+                    },
+                  },
+                  {
+                    tipo: {
+                      contains: normalizeText(term),
+                      mode: 'insensitive',
+                    },
+                  },
+                ]),
+              }
+            : {},
+          cidade
+            ? {
+                cidade_formatada: {
+                  equals: normalizeText(cidade),
                   mode: 'insensitive',
                 },
               }
             : {},
-          filter.tipo
+          estado
             ? {
-                tipo: {
-                  contains: filter.tipo,
+                estado_formatado: {
+                  equals: normalizeText(estado),
                   mode: 'insensitive',
                 },
               }
             : {},
-          filter.marca
-            ? {
-                marca: {
-                  contains: filter.marca,
-                  mode: 'insensitive',
-                },
-              }
+          tipo ? { tipo: { contains: tipo, mode: 'insensitive' } } : {},
+          marca ? { marca: { contains: marca, mode: 'insensitive' } } : {},
+          modelo ? { modelo: { contains: modelo, mode: 'insensitive' } } : {},
+          cor ? { cor: { contains: cor, mode: 'insensitive' } } : {},
+          portas ? { portas: { contains: portas, mode: 'insensitive' } } : {},
+          cambio ? { cambio: { contains: cambio, mode: 'insensitive' } } : {},
+          preco_min ? { preco: { gte: Number(preco_min) } } : {},
+          preco_max ? { preco: { lte: Number(preco_max) } } : {},
+          quilometragem_max
+            ? { quilometragem: { lte: Number(quilometragem_max) } }
             : {},
-          filter.modelo
-            ? {
-                modelo: {
-                  contains: filter.modelo,
-                  mode: 'insensitive',
-                },
-              }
+          quilometragem_min
+            ? { quilometragem: { gte: Number(quilometragem_min) } }
             : {},
-          filter.cor
-            ? {
-                cor: {
-                  contains: filter.cor,
-                  mode: 'insensitive',
-                },
-              }
-            : {},
-          filter.portas ? { portas: filter.portas } : {},
-          filter.cambio
-            ? {
-                cambio: {
-                  contains: filter.cambio,
-                  mode: 'insensitive',
-                },
-              }
-            : {},
-          filter.preco_min ? { preco: { gte: Number(filter.preco_min) } } : {},
-          filter.preco_max ? { preco: { lte: Number(filter.preco_max) } } : {},
-          filter.quilometragem_max
-            ? { quilometragem: { lte: Number(filter.quilometragem_max) } }
-            : {},
-          filter.quilometragem_min
-            ? { quilometragem: { gte: Number(filter.quilometragem_min) } }
-            : {},
-          filter.ano_modelo_max
-            ? { ano_modelo: { lte: Number(filter.ano_modelo_max) } }
-            : {},
-          filter.ano_modelo_min
-            ? { ano_modelo: { gte: Number(filter.ano_modelo_min) } }
+          ano_modelo_max ? { ano_modelo: { lte: Number(ano_modelo_max) } } : {},
+          ano_modelo_min ? { ano_modelo: { gte: Number(ano_modelo_min) } } : {},
+          opcionais
+            ? { opcionais: { some: { id: { in: optionalsRefactored } } } }
             : {},
         ],
       },
       include: {
-        imagens: true,
-        opcionais: true,
+        imagens: { select: { url: true, id: true } },
+        opcionais: { select: { id: true, nome: true } },
         usuario: {
           select: {
             id: true,
             nome: true,
+            sobrenome: true,
+            imagem: true,
             email: true,
             telefone: true,
             data_criacao: true,
@@ -348,6 +396,15 @@ export class AdvertService implements IAdvertService {
       },
     });
 
-    return adverts;
+    console.log(filterAdvertsDto);
+
+    const total = await this.prismaService.adverts.count();
+
+    return {
+      adverts,
+      total,
+      page: Number(page),
+      totalPages: Math.ceil(total / Number(limit)),
+    };
   }
 }

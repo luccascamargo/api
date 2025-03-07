@@ -21,7 +21,7 @@ export class AuthService implements IAuthService {
 
   async register(
     createAuthDto: CreateAuthDto,
-  ): Promise<{ accessToken: string }> {
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     const userAlreadyExists = await this.prismaService.user.findUnique({
       where: {
         email: createAuthDto.email,
@@ -63,17 +63,12 @@ export class AuthService implements IAuthService {
       expiresIn: '7d',
     });
 
-    await this.prismaService.refreshToken.create({
-      data: {
-        token: refreshToken,
-        usuario_id: user.id,
-      },
-    });
-
-    return { accessToken };
+    return { accessToken, refreshToken };
   }
 
-  async login(signinAuthDto: SigninAuthDto): Promise<{ accessToken: string }> {
+  async login(
+    signinAuthDto: SigninAuthDto,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     const userAlreadyExists = await this.prismaService.user.findUnique({
       where: {
         email: signinAuthDto.email,
@@ -102,14 +97,7 @@ export class AuthService implements IAuthService {
       expiresIn: '7d',
     });
 
-    await this.prismaService.refreshToken.create({
-      data: {
-        token: refreshToken,
-        usuario_id: userAlreadyExists.id,
-      },
-    });
-
-    return { accessToken };
+    return { accessToken, refreshToken };
   }
 
   async getMe(id: string) {

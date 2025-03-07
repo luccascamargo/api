@@ -1,6 +1,9 @@
-import { IsOptional, IsString, IsNumber, IsArray } from 'class-validator';
-
+import { IsOptional, IsString } from 'class-validator';
 export class FilterAdvertsDto {
+  @IsOptional()
+  @IsString({ message: 'O campo busca deve ser uma string' })
+  busca?: string;
+
   @IsOptional()
   @IsString({ message: 'O campo tipo deve ser uma string' })
   tipo?: string;
@@ -14,12 +17,12 @@ export class FilterAdvertsDto {
   modelo?: string;
 
   @IsOptional()
-  @IsNumber({}, { message: 'O campo ano_modelo deve ser um número' })
-  ano_modelo_min?: number;
+  @IsString({ message: 'O campo ano_modelo_min deve ser uma string' })
+  ano_modelo_min?: string;
 
   @IsOptional()
-  @IsNumber({}, { message: 'O campo ano_modelo deve ser um número' })
-  ano_modelo_max?: number;
+  @IsString({ message: 'O campo ano_modelo_max deve ser uma string' })
+  ano_modelo_max?: string;
 
   @IsOptional()
   @IsString({ message: 'O campo cor deve ser uma string' })
@@ -30,34 +33,39 @@ export class FilterAdvertsDto {
   cidade?: string;
 
   @IsOptional()
-  @IsNumber({}, { message: 'O campo preco deve ser um número' })
-  preco_min?: number;
+  @IsString({ message: 'O campo preco_min deve ser uma string' })
+  preco_min?: string;
 
   @IsOptional()
-  @IsNumber({}, { message: 'O campo preco deve ser um número' })
-  preco_max?: number;
+  @IsString({ message: 'O campo preco_max deve ser uma string' })
+  preco_max?: string;
 
   @IsOptional()
   @IsString({ message: 'O campo portas deve ser uma string' })
   portas?: string;
 
   @IsOptional()
-  @IsNumber({}, { message: 'O campo quilometragem deve ser um número' })
-  quilometragem_min?: number;
+  @IsString({ message: 'O campo estado deve ser uma string' })
+  estado?: string;
 
   @IsOptional()
-  @IsNumber({}, { message: 'O campo quilometragem deve ser um número' })
-  quilometragem_max?: number;
+  @IsString({ message: 'O campo quilometragem_min deve ser uma string' })
+  quilometragem_min?: string;
+
+  @IsOptional()
+  @IsString({ message: 'O campo quilometragem_max deve ser uma string' })
+  quilometragem_max?: string;
 
   @IsOptional()
   @IsString({ message: 'O campo cambio deve ser uma string' })
   cambio?: string;
 
   @IsOptional()
-  @IsArray({ message: 'O campo opcionais deve ser um array' })
   @IsString({
     each: true,
     message: 'Cada item do campo opcionais deve ser uma string',
   })
-  opcionais?: string[];
+  opcionais?: string;
+  page?: string = '1';
+  limit?: string = '12';
 }

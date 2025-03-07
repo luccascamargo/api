@@ -5,7 +5,7 @@ import { FipeService } from './fipe.service';
 export class FipeController {
   constructor(private readonly fipeService: FipeService) {}
 
-  @Get('/types/')
+  @Get('/types')
   findTypes() {
     return this.fipeService.findTypes();
   }

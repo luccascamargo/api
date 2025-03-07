@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
-import { Connection } from 'mongoose';
+import { Collection, Connection } from 'mongoose';
 import axios from 'axios';
 import {
   FipeServiceInterface,
@@ -28,8 +28,7 @@ export class FipeService implements FipeServiceInterface {
 
   async findBrands(type: string): Promise<IFindBrandsReturn[]> {
     const tableName = 'brands';
-
-    let dataCached: any = [];
+    let dataCached: IFindBrandsReturn[] = [];
     let data: IFindBrandsReturn[] = [];
 
     try {
@@ -39,37 +38,44 @@ export class FipeService implements FipeServiceInterface {
       };
 
       if (cacheEnabled) {
-        dataCached = await this.connection
-          .collection(tableName)
-          .find()
+        const collection: Collection<IFindBrandsReturn> =
+          this.connection.collection(tableName);
+        dataCached = await collection
+          .find({ codigoTipoVeiculo: type })
           .toArray();
-      }
 
-      if (dataCached && dataCached?.length > 0 && cacheEnabled) {
-        data = dataCached;
-      } else {
-        const resp = await axios.post(URL_BASE + 'ConsultarMarcas', payload, {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-        data = resp.data;
-
-        if (cacheEnabled && data?.length > 0) {
-          try {
-            const collection = this.connection.collection(tableName);
-            await collection.deleteMany({});
-            const newCollection =
-              await this.connection.createCollection(tableName);
-
-            newCollection.insertMany(data);
-          } catch {
-            throw new Error('Erro ao cadastrar as marcas no mongodb');
-          }
+        if (dataCached.length > 0) {
+          return dataCached;
         }
       }
+
+      const resp = await axios.post(URL_BASE + 'ConsultarMarcas', payload, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      data = resp.data.map((item: { label: string; value: string }) => ({
+        ...item,
+        codigoTipoVeiculo: type, // Adiciona o campo codigoTipoVeiculo
+      }));
+
+      // Atualiza o cache, se habilitado
+      if (cacheEnabled && data.length > 0) {
+        try {
+          const collection: Collection<IFindBrandsReturn> =
+            this.connection.collection(tableName);
+          await collection.deleteMany({ codigoTipoVeiculo: type }); // Remove apenas os dados do tipo especificado
+          await collection.insertMany(data); // Insere os novos dados
+        } catch (error) {
+          console.error('Erro ao atualizar o cache:', error);
+          throw new Error('Erro ao cadastrar as marcas no MongoDB');
+        }
+      }
+
       return data;
-    } catch {
+    } catch (error) {
+      console.error('Erro ao buscar marcas:', error);
       throw new Error('Erro ao lidar com as marcas');
     }
   }
@@ -84,45 +90,56 @@ export class FipeService implements FipeServiceInterface {
         codigoMarca: brand,
       };
 
-      let dataCached: any = [];
+      let dataCached: IFindModelsReturn[] = [];
       let data: IFindModelsReturn[] = [];
 
+      // Verifica o cache, se habilitado
       if (cacheEnabled) {
-        dataCached = await this.connection
-          .collection(tableName)
-          .find()
+        const collection: Collection<IFindModelsReturn> =
+          this.connection.collection(tableName);
+        dataCached = await collection
+          .find({ codigoTipoVeiculo: type, codigoMarca: brand })
           .toArray();
-      } else {
-        dataCached = [];
+
+        if (dataCached.length > 0) {
+          return dataCached; // Retorna dados em cache se existirem
+        }
       }
 
-      if (dataCached?.length > 0 && cacheEnabled) {
-        data = dataCached;
-      } else {
-        const resp = await axios.post(URL_BASE + 'ConsultarModelos', payload, {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-        data = resp.data.Modelos;
+      // Busca dados da API externa
+      const resp = await axios.post(URL_BASE + 'ConsultarModelos', payload, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-        if (cacheEnabled && data?.length > 0) {
-          try {
-            const collection = this.connection.collection(tableName);
-            await collection.deleteMany({});
-            const newCollection =
-              await this.connection.createCollection(tableName);
+      data = resp.data.Modelos.map(
+        (item: { label: string; value: string }) => ({
+          ...item,
+          codigoTipoVeiculo: type, // Adiciona o campo codigoTipoVeiculo
+          codigoMarcaVeiculo: brand, // Adiciona o campo codigoTipoVeiculo
+        }),
+      );
 
-            newCollection.insertMany(data);
-          } catch {
-            throw new Error('Erro ao cadastrar os modelos no mongodb');
-          }
+      // Atualiza o cache, se habilitado
+      if (cacheEnabled && data.length > 0) {
+        try {
+          const collection: Collection<IFindModelsReturn> =
+            this.connection.collection(tableName);
+          await collection.deleteMany({
+            codigoTipoVeiculo: type,
+            codigoMarcaVeiculo: brand,
+          }); // Remove apenas os dados relevantes
+          await collection.insertMany(data); // Insere os novos dados
+        } catch (error) {
+          console.error('Erro ao atualizar o cache:', error);
+          throw new Error('Erro ao cadastrar os modelos no MongoDB');
         }
       }
 
       return data;
     } catch (error) {
-      console.log(error);
+      console.error('Erro ao buscar modelos:', error);
       throw new Error('Erro ao lidar com os modelos');
     }
   }
@@ -143,49 +160,60 @@ export class FipeService implements FipeServiceInterface {
         codigoModelo: model,
       };
 
-      let dataCached: any = [];
+      let dataCached: IFindYearsReturn[] = [];
       let data: IFindYearsReturn[] = [];
 
+      // Verifica o cache, se habilitado
       if (cacheEnabled) {
-        dataCached = await this.connection
-          .collection(tableName)
-          .find()
+        const collection: Collection<IFindYearsReturn> =
+          this.connection.collection(tableName);
+        dataCached = await collection
+          .find({
+            codigoTipoVeiculo: type,
+            codigoMarcaVeiculo: brand,
+            codigoModeloVeiculo: model,
+          })
           .toArray();
-      } else {
-        dataCached = [];
+
+        if (dataCached.length > 0) {
+          return dataCached; // Retorna dados em cache se existirem
+        }
       }
 
-      if (dataCached?.length > 0 && cacheEnabled) {
-        data = dataCached;
-      } else {
-        const resp = await axios.post(
-          URL_BASE + 'ConsultarAnoModelo',
-          payload,
-          {
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          },
-        );
-        data = resp.data;
+      // Busca dados da API externa
+      const resp = await axios.post(URL_BASE + 'ConsultarAnoModelo', payload, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-        if (cacheEnabled && data?.length > 0) {
-          try {
-            const collection = this.connection.collection(tableName);
-            await collection.deleteMany({});
-            const newCollection =
-              await this.connection.createCollection(tableName);
+      data = resp.data.map((item: { label: string; value: string }) => ({
+        ...item,
+        codigoTipoVeiculo: type, // Adiciona o campo codigoTipoVeiculo
+        codigoMarcaVeiculo: brand, // Adiciona o campo codigoTipoVeiculo
+        codigoModeloVeiculo: model, // Adiciona o campo codigoTipoVeiculo
+      }));
 
-            newCollection.insertMany(data);
-          } catch {
-            throw new Error('Erro ao cadastrar os anos no mongodb');
-          }
+      // Atualiza o cache, se habilitado
+      if (cacheEnabled && data.length > 0) {
+        try {
+          const collection: Collection<IFindYearsReturn> =
+            this.connection.collection(tableName);
+          await collection.deleteMany({
+            codigoTipoVeiculo: type,
+            codigoMarcaVeiculo: brand,
+            codigoModeloVeiculo: model,
+          }); // Remove apenas os dados relevantes
+          await collection.insertMany(data); // Insere os novos dados
+        } catch (error) {
+          console.error('Erro ao atualizar o cache:', error);
+          throw new Error('Erro ao cadastrar os anos no MongoDB');
         }
       }
 
       return data;
     } catch (error) {
-      console.log(error);
+      console.error('Erro ao buscar anos:', error);
       throw new Error('Erro ao lidar com os anos');
     }
   }

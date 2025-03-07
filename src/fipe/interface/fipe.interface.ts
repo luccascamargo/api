@@ -1,16 +1,22 @@
 export interface IFindBrandsReturn {
   label: string;
   value: string;
+  codigoTipoVeiculo: string;
 }
 
 export interface IFindModelsReturn {
   label: string;
   value: string;
+  codigoTipoVeiculo: string;
+  codigoMarcaVeiculo: string;
 }
 
 export interface IFindYearsReturn {
   label: string;
   value: string;
+  codigoTipoVeiculo: string;
+  codigoMarcaVeiculo: string;
+  codigoModeloVeiculo: string;
 }
 
 export interface FipeServiceInterface {

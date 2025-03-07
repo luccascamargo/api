@@ -17,20 +17,22 @@ import { CookieInterceptor } from './auth.interceptor';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Post('/signup')
+  @Post('/register')
   @HttpCode(201)
   async signup(@Body() createAuthDto: CreateAuthDto) {
-    const { accessToken } = await this.authService.register(createAuthDto);
+    const { accessToken, refreshToken } =
+      await this.authService.register(createAuthDto);
 
-    return { accessToken };
+    return { accessToken, refreshToken };
   }
 
   @Post('/signin')
   @HttpCode(200)
   async signin(@Body() siginAuthDto: SigninAuthDto) {
-    const { accessToken } = await this.authService.login(siginAuthDto);
+    const { accessToken, refreshToken } =
+      await this.authService.login(siginAuthDto);
 
-    return { accessToken };
+    return { accessToken, refreshToken };
   }
 
   @Get(`/me/:id`)

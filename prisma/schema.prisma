@@ -8,32 +8,22 @@ datasource db {
 }
 
 model User {
-  id                   String         @id @unique @default(uuid())
-  stripe_id            String         @unique
-  nome                 String
-  sobrenome            String
-  email                String         @unique
-  telefone             String?
-  ativo                Boolean
-  plano                Plan           @default(GRATIS)
-  data_atualizacao     DateTime       @default(now()) @db.Timestamp(6)
-  data_criacao         DateTime       @default(now()) @db.Timestamp(6)
-  imagem               String?
-  senha                String
-  anuncios             Adverts[]
-  inscricoes           Subscription[]
-  token_de_atualizacao RefreshToken[]
+  id               String         @id @unique @default(uuid())
+  stripe_id        String         @unique
+  nome             String
+  sobrenome        String
+  email            String         @unique
+  telefone         String?
+  ativo            Boolean
+  plano            Plan           @default(GRATIS)
+  data_atualizacao DateTime       @default(now()) @db.Timestamp(6)
+  data_criacao     DateTime       @default(now()) @db.Timestamp(6)
+  imagem           String?
+  senha            String
+  anuncios         Adverts[]
+  inscricoes       Subscription[]
 
   @@map("users")
-}
-
-model RefreshToken {
-  id               String   @id @unique @default(uuid())
-  token            String   @unique
-  usuario_id       String
-  usuario          User     @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
-  data_ciacao      DateTime @default(now())
-  data_atualizacao DateTime @updatedAt
 }
 
 model Subscription {
@@ -52,30 +42,33 @@ model Subscription {
 }
 
 model Adverts {
-  id               String     @id @default(uuid())
-  tipo             String
-  marca            String
-  modelo           String
-  ano_modelo       Int
-  cor              String
-  cep              String
-  cidade           String
-  estado           String
-  preco            Int
-  portas           String
-  quilometragem    Int
-  descricao        String?
-  placa            String
-  cambio           String
-  data_cricao      DateTime   @default(now()) @db.Timestamp(6)
-  data_atualizacao DateTime?  @default(now()) @db.Timestamp(6)
-  status           Status     @default(PENDENTE)
-  slug             String     @unique
-  destaque         Boolean?
-  usuario_id       String
-  usuario          User       @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
-  imagens          Photos[]
-  opcionais        Optional[] @relation("AdvertsToOptional")
+  id                  String     @id @default(uuid())
+  tipo                String
+  marca               String
+  modelo              String
+  ano_modelo          Int
+  cor                 String
+  cep                 String
+  cidade              String
+  cidade_formatada    String
+  estado              String
+  estado_formatado    String
+  preco               Int
+  portas              String
+  quilometragem       Int
+  descricao           String?
+  descricao_formatada String?
+  placa               String
+  cambio              String
+  data_cricao         DateTime   @default(now()) @db.Timestamp(6)
+  data_atualizacao    DateTime?  @default(now()) @db.Timestamp(6)
+  status              Status     @default(PENDENTE)
+  slug                String     @unique
+  destaque            Boolean?
+  usuario_id          String
+  usuario             User       @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+  imagens             Photos[]
+  opcionais           Optional[] @relation("AdvertsToOptional")
 
   @@map("adverts")
 }

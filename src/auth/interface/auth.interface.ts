@@ -8,7 +8,11 @@ type IGetMeReponse = Pick<
 >;
 
 export interface IAuthService {
-  login(signinAuthDto: SigninAuthDto): Promise<{ accessToken: string }>;
-  register(CreateAuthDto: CreateAuthDto): Promise<{ accessToken: string }>;
+  login(
+    signinAuthDto: SigninAuthDto,
+  ): Promise<{ accessToken: string; refreshToken: string }>;
+  register(
+    CreateAuthDto: CreateAuthDto,
+  ): Promise<{ accessToken: string; refreshToken: string }>;
   getMe(id: string): Promise<IGetMeReponse>;
 }

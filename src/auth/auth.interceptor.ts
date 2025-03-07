@@ -20,9 +20,13 @@ export class CookieInterceptor implements NestInterceptor {
           response.cookie('accessToken', data.accessToken, {
             httpOnly: true,
             sameSite: 'strict',
-            maxAge: 7 * 24 * 60 * 60 * 1000,
             path: '/',
           });
+          // response.cookie('refreshToken', data.refreshToken, {
+          //   httpOnly: true,
+          //   sameSite: 'strict',
+          //   path: '/',
+          // });
         }
       }),
     );

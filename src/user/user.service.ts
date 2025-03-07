@@ -10,6 +10,7 @@ import { StripeService } from 'src/stripe/stripe.service';
 import * as bcrypt from 'bcrypt';
 import { IUserService } from './interface/user.interface';
 import { User } from '@prisma/client';
+import { UpdatePasswordDto } from './dto/update-password';
 
 @Injectable()
 export class UserService implements IUserService {
@@ -92,6 +93,43 @@ export class UserService implements IUserService {
         sobrenome: UpdateUserDto.sobrenome,
         senha: newPasswordHash ? newPasswordHash : userAlreadyExists.senha,
         telefone: UpdateUserDto.telefone,
+      },
+    });
+
+    return user;
+  }
+
+  async updatePassword(updatePasswordDto: UpdatePasswordDto): Promise<User> {
+    let newPasswordHash: string;
+    const userAlreadyExists = await this.prismaService.user.findUnique({
+      where: {
+        email: updatePasswordDto.email,
+      },
+    });
+
+    if (!userAlreadyExists) {
+      throw new BadRequestException();
+    }
+
+    const comparePassword = await bcrypt.compare(
+      updatePasswordDto.senha,
+      userAlreadyExists.senha,
+    );
+
+    if (!comparePassword) {
+      throw new UnauthorizedException();
+    }
+
+    if (updatePasswordDto.novaSenha) {
+      newPasswordHash = await bcrypt.hash(updatePasswordDto.novaSenha, 10);
+    }
+
+    const user = await this.prismaService.user.update({
+      where: {
+        id: userAlreadyExists.id,
+      },
+      data: {
+        senha: newPasswordHash,
       },
     });
 
