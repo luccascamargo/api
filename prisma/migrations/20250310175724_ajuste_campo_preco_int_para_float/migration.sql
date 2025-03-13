@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "adverts" ALTER COLUMN "preco" SET DATA TYPE DOUBLE PRECISION;

@@ -53,7 +53,7 @@ model Adverts {
   cidade_formatada    String
   estado              String
   estado_formatado    String
-  preco               Int
+  preco               Decimal
   portas              String
   quilometragem       Int
   descricao           String?

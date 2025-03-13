@@ -8,6 +8,7 @@ import { FilterAdvertsDto } from './dto/filter-advert.dto';
 import { IAdvertService } from './interface/advert.interface';
 import { UserPayload } from 'src/auth/types/userPayload';
 import { normalizeText } from 'src/utils/formatedText';
+import { formatedPrice } from 'src/utils/formatedPrice';
 
 @Injectable()
 export class AdvertService implements IAdvertService {
@@ -286,6 +287,7 @@ export class AdvertService implements IAdvertService {
     if (opcionais) {
       optionalsRefactored = opcionais.split(',').map((opc) => opc);
     }
+
     const skip = (Number(page) - 1) * Number(limit);
 
     const searchTerms = busca?.split(' ');
