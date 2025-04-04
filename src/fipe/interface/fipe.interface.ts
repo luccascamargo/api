@@ -1,31 +1,15 @@
-export interface IFindBrandsReturn {
-  label: string;
-  value: string;
-  codigoTipoVeiculo: string;
-}
+type ResponseBrands = {
+  nome: string;
+  id: number;
+};
 
-export interface IFindModelsReturn {
-  label: string;
-  value: string;
-  codigoTipoVeiculo: string;
-  codigoMarcaVeiculo: string;
-}
-
-export interface IFindYearsReturn {
-  label: string;
-  value: string;
-  codigoTipoVeiculo: string;
-  codigoMarcaVeiculo: string;
-  codigoModeloVeiculo: string;
-}
+type ResponseModels = {
+  nome: string;
+  id: number;
+};
 
 export interface FipeServiceInterface {
-  findTypes(): { value: number; name: string }[];
-  findBrands(type: string): Promise<IFindBrandsReturn[]>;
-  findModels(type: string, brand: string): Promise<IFindModelsReturn[]>;
-  findYears(
-    type: string,
-    brand: string,
-    model: string,
-  ): Promise<IFindYearsReturn[]>;
+  sync(type: string): Promise<{ message: string }>;
+  findBrands(type: string): Promise<ResponseBrands[]>;
+  findModels(brand: string): Promise<ResponseModels[]>;
 }

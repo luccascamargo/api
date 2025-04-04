@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsNumber, IsArray } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateAdvertDto {
   @IsNotEmpty({ message: 'O campo tipo não pode ser vazio' })
@@ -14,16 +14,12 @@ export class CreateAdvertDto {
   modelo: string;
 
   @IsNotEmpty({ message: 'O campo ano_modelo não pode ser vazio' })
-  @IsNumber({}, { message: 'O campo ano_modelo deve ser um número' })
-  ano_modelo: number;
+  @IsString({ message: 'O campo ano_modelo deve ser uma string' })
+  ano_modelo: string;
 
   @IsNotEmpty({ message: 'O campo cor não pode ser vazio' })
   @IsString({ message: 'O campo cor deve ser uma string' })
   cor: string;
-
-  @IsNotEmpty({ message: 'O campo cep não pode ser vazio' })
-  @IsString({ message: 'O campo cep deve ser uma string' })
-  cep: string;
 
   @IsNotEmpty({ message: 'O campo cidade não pode ser vazio' })
   @IsString({ message: 'O campo cidade deve ser uma string' })
@@ -34,16 +30,16 @@ export class CreateAdvertDto {
   estado: string;
 
   @IsNotEmpty({ message: 'O campo preco não pode ser vazio' })
-  @IsNumber({}, { message: 'O campo preco deve ser um número' })
-  preco: number;
+  @IsString({ message: 'O campo preco deve ser uma string' })
+  preco: string;
 
   @IsNotEmpty({ message: 'O campo portas não pode ser vazio' })
   @IsString({ message: 'O campo portas deve ser uma string' })
   portas: string;
 
   @IsNotEmpty({ message: 'O campo quilometragem não pode ser vazio' })
-  @IsNumber({}, { message: 'O campo quilometragem deve ser um número' })
-  quilometragem: number;
+  @IsString({ message: 'O campo quilometragem deve ser uma string' })
+  quilometragem: string;
 
   @IsNotEmpty({ message: 'O campo descricao não pode ser vazio' })
   @IsString({ message: 'O campo descricao deve ser uma string' })
@@ -61,19 +57,9 @@ export class CreateAdvertDto {
   @IsString({ message: 'O campo usuario_id deve ser uma string' })
   usuario_id: string;
 
-  @IsNotEmpty({ message: 'O campo imagens não pode ser vazio' })
-  @IsArray({ message: 'O campo imagens deve ser um array' })
+  @IsOptional()
   @IsString({
-    each: true,
-    message: 'Cada item do campo imagens deve ser uma string',
+    message: 'Cada item do campo opcionais deve ser separado por uma virgula',
   })
-  imagens: string[];
-
-  @IsNotEmpty({ message: 'O campo opcionais não pode ser vazio' })
-  @IsArray({ message: 'O campo opcionais deve ser um array' })
-  @IsString({
-    each: true,
-    message: 'Cada item do campo opcionais deve ser uma string',
-  })
-  opcionais: string[];
+  opcionais: string;
 }

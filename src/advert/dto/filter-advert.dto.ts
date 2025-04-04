@@ -66,6 +66,8 @@ export class FilterAdvertsDto {
     message: 'Cada item do campo opcionais deve ser uma string',
   })
   opcionais?: string;
-  page?: string = '1';
-  limit?: string = '12';
+  @IsOptional()
+  pageParam: string;
+  @IsOptional()
+  limit: string;
 }

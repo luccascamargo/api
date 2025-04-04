@@ -1,220 +1,134 @@
 import { Injectable } from '@nestjs/common';
-import { InjectConnection } from '@nestjs/mongoose';
-import { Collection, Connection } from 'mongoose';
 import axios from 'axios';
-import {
-  FipeServiceInterface,
-  IFindBrandsReturn,
-  IFindModelsReturn,
-  IFindYearsReturn,
-} from './interface/fipe.interface';
+import { FipeServiceInterface } from './interface/fipe.interface';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { Category } from '@prisma/client';
+import slugify from 'slugify';
 
-const URL_BASE = 'https://veiculos.fipe.org.br/api/veiculos/';
-const cacheEnabled = Boolean(process.env.CACHE_ENABLED === 'true') || false;
-const dataTable = process.env.FIPE_TABLE || 317; // Janeiro/2025;
+interface ICategory {
+  CARROS: string;
+  CAMINHOES: string;
+  MOTOS: string;
+}
+
+const categories: ICategory = {
+  CARROS: 'https://brasilapi.com.br/api/fipe/marcas/v1/carros',
+  CAMINHOES: 'https://brasilapi.com.br/api/fipe/marcas/v1/caminhoes',
+  MOTOS: 'https://brasilapi.com.br/api/fipe/marcas/v1/motos',
+};
 
 @Injectable()
 export class FipeService implements FipeServiceInterface {
-  constructor(@InjectConnection() private connection: Connection) {}
+  constructor(private readonly prismaService: PrismaService) {}
 
-  findTypes() {
-    const types = [
-      { value: 1, name: 'carros' },
-      { value: 2, name: 'motos' },
-      { value: 3, name: 'caminhoes' },
-    ];
-    return types;
-  }
-
-  async findBrands(type: string): Promise<IFindBrandsReturn[]> {
-    const tableName = 'brands';
-    let dataCached: IFindBrandsReturn[] = [];
-    let data: IFindBrandsReturn[] = [];
-
-    try {
-      const payload = {
-        codigoTabelaReferencia: dataTable,
-        codigoTipoVeiculo: type,
-      };
-
-      if (cacheEnabled) {
-        const collection: Collection<IFindBrandsReturn> =
-          this.connection.collection(tableName);
-        dataCached = await collection
-          .find({ codigoTipoVeiculo: type })
-          .toArray();
-
-        if (dataCached.length > 0) {
-          return dataCached;
-        }
-      }
-
-      const resp = await axios.post(URL_BASE + 'ConsultarMarcas', payload, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      data = resp.data.map((item: { label: string; value: string }) => ({
-        ...item,
-        codigoTipoVeiculo: type, // Adiciona o campo codigoTipoVeiculo
-      }));
-
-      // Atualiza o cache, se habilitado
-      if (cacheEnabled && data.length > 0) {
-        try {
-          const collection: Collection<IFindBrandsReturn> =
-            this.connection.collection(tableName);
-          await collection.deleteMany({ codigoTipoVeiculo: type }); // Remove apenas os dados do tipo especificado
-          await collection.insertMany(data); // Insere os novos dados
-        } catch (error) {
-          console.error('Erro ao atualizar o cache:', error);
-          throw new Error('Erro ao cadastrar as marcas no MongoDB');
-        }
-      }
-
-      return data;
-    } catch (error) {
-      console.error('Erro ao buscar marcas:', error);
-      throw new Error('Erro ao lidar com as marcas');
-    }
-  }
-
-  async findModels(type: string, brand: string): Promise<IFindModelsReturn[]> {
-    const tableName = 'models';
-
-    try {
-      const payload = {
-        codigoTabelaReferencia: dataTable,
-        codigoTipoVeiculo: type,
-        codigoMarca: brand,
-      };
-
-      let dataCached: IFindModelsReturn[] = [];
-      let data: IFindModelsReturn[] = [];
-
-      // Verifica o cache, se habilitado
-      if (cacheEnabled) {
-        const collection: Collection<IFindModelsReturn> =
-          this.connection.collection(tableName);
-        dataCached = await collection
-          .find({ codigoTipoVeiculo: type, codigoMarca: brand })
-          .toArray();
-
-        if (dataCached.length > 0) {
-          return dataCached; // Retorna dados em cache se existirem
-        }
-      }
-
-      // Busca dados da API externa
-      const resp = await axios.post(URL_BASE + 'ConsultarModelos', payload, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      data = resp.data.Modelos.map(
-        (item: { label: string; value: string }) => ({
-          ...item,
-          codigoTipoVeiculo: type, // Adiciona o campo codigoTipoVeiculo
-          codigoMarcaVeiculo: brand, // Adiciona o campo codigoTipoVeiculo
-        }),
+  async findBrands(type: string): Promise<{ nome: string; id: number }[]> {
+    if (
+      !type ||
+      !['CARROS', 'CAMINHOES', 'MOTOS'].includes(type.toUpperCase())
+    ) {
+      throw new Error(
+        'Categoria inválida. Escolha entre carro, caminhao ou moto.',
       );
-
-      // Atualiza o cache, se habilitado
-      if (cacheEnabled && data.length > 0) {
-        try {
-          const collection: Collection<IFindModelsReturn> =
-            this.connection.collection(tableName);
-          await collection.deleteMany({
-            codigoTipoVeiculo: type,
-            codigoMarcaVeiculo: brand,
-          }); // Remove apenas os dados relevantes
-          await collection.insertMany(data); // Insere os novos dados
-        } catch (error) {
-          console.error('Erro ao atualizar o cache:', error);
-          throw new Error('Erro ao cadastrar os modelos no MongoDB');
-        }
-      }
-
-      return data;
-    } catch (error) {
-      console.error('Erro ao buscar modelos:', error);
-      throw new Error('Erro ao lidar com os modelos');
     }
-  }
-
-  async findYears(
-    type: string,
-    brand: string,
-    model: string,
-  ): Promise<IFindYearsReturn[]> {
-    const tableName = 'years';
-
     try {
-      // Payload
-      const payload = {
-        codigoTabelaReferencia: dataTable,
-        codigoTipoVeiculo: type,
-        codigoMarca: brand,
-        codigoModelo: model,
-      };
-
-      let dataCached: IFindYearsReturn[] = [];
-      let data: IFindYearsReturn[] = [];
-
-      // Verifica o cache, se habilitado
-      if (cacheEnabled) {
-        const collection: Collection<IFindYearsReturn> =
-          this.connection.collection(tableName);
-        dataCached = await collection
-          .find({
-            codigoTipoVeiculo: type,
-            codigoMarcaVeiculo: brand,
-            codigoModeloVeiculo: model,
-          })
-          .toArray();
-
-        if (dataCached.length > 0) {
-          return dataCached; // Retorna dados em cache se existirem
-        }
-      }
-
-      // Busca dados da API externa
-      const resp = await axios.post(URL_BASE + 'ConsultarAnoModelo', payload, {
-        headers: {
-          'Content-Type': 'application/json',
+      const brands = await this.prismaService.brands.findMany({
+        where: { categoria: type.toUpperCase() as Category },
+        select: {
+          id: true,
+          nome: true,
+          slug: true,
         },
       });
 
-      data = resp.data.map((item: { label: string; value: string }) => ({
-        ...item,
-        codigoTipoVeiculo: type, // Adiciona o campo codigoTipoVeiculo
-        codigoMarcaVeiculo: brand, // Adiciona o campo codigoTipoVeiculo
-        codigoModeloVeiculo: model, // Adiciona o campo codigoTipoVeiculo
-      }));
+      return brands;
+    } catch (error) {
+      console.log(error);
+      throw new Error('Method not implemented.');
+    }
+  }
 
-      // Atualiza o cache, se habilitado
-      if (cacheEnabled && data.length > 0) {
-        try {
-          const collection: Collection<IFindYearsReturn> =
-            this.connection.collection(tableName);
-          await collection.deleteMany({
-            codigoTipoVeiculo: type,
-            codigoMarcaVeiculo: brand,
-            codigoModeloVeiculo: model,
-          }); // Remove apenas os dados relevantes
-          await collection.insertMany(data); // Insere os novos dados
-        } catch (error) {
-          console.error('Erro ao atualizar o cache:', error);
-          throw new Error('Erro ao cadastrar os anos no MongoDB');
+  async findModels(brand: string): Promise<{ nome: string; id: number }[]> {
+    try {
+      const models = await this.prismaService.models.findMany({
+        where: {
+          OR: [
+            parseInt(brand)
+              ? {
+                  Brands: {
+                    id: parseInt(brand),
+                  },
+                }
+              : {},
+            {
+              Brands: {
+                slug: brand,
+              },
+            },
+          ],
+        },
+        select: {
+          id: true,
+          nome: true,
+          slug: true,
+        },
+      });
+
+      return models;
+    } catch (error) {
+      console.log(error);
+      throw new Error('Method not implemented.');
+    }
+  }
+
+  async sync(): Promise<{ message: string }> {
+    for (const [category, url] of Object.entries(categories)) {
+      console.log(`🔄 Sincronizando dados para: ${category}...`);
+
+      // Buscar marcas da BrasilAPI
+      const { data: brands } = await axios.get(url, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      for (const brand of brands) {
+        // Criar ou atualizar marca
+        const slug = slugify(brand.nome, { lower: true, strict: true });
+        await this.prismaService.brands.upsert({
+          where: { id: parseInt(brand.valor) },
+          update: { nome: brand.nome, slug, categoria: category as Category },
+          create: {
+            id: parseInt(brand.valor),
+            nome: brand.nome,
+            slug,
+            categoria: category as Category,
+          },
+        });
+
+        // Buscar modelos da marca
+        const { data: models } = await axios.get(
+          `https://brasilapi.com.br/api/fipe/veiculos/v1/${category.toLowerCase()}/${brand.valor}`,
+          { headers: { 'Content-Type': 'application/json' } },
+        );
+
+        for (const model of models) {
+          const slug = slugify(model.modelo, { lower: true, strict: true });
+          await this.prismaService.models.upsert({
+            where: { nome: model.modelo },
+            update: {
+              nome: model.modelo,
+              categoria: category as Category,
+              slug,
+            },
+            create: {
+              nome: model.modelo,
+              slug,
+              brandsId: parseInt(brand.valor),
+              categoria: category as Category,
+            },
+          });
         }
       }
-
-      return data;
-    } catch (error) {
-      console.error('Erro ao buscar anos:', error);
-      throw new Error('Erro ao lidar com os anos');
+      console.log(`✅ Sincronização de ${category} concluída.`);
     }
+    return { message: 'Sincronização concluída.' };
   }
 }

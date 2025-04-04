@@ -1,14 +1,24 @@
-import { Controller, Get, Post, Body, Patch, Param } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdatePasswordDto } from './dto/update-password';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @Post()
+  @Post('data')
   create(@Body() createUserDto: CreateUserDto) {
     return this.userService.create(createUserDto);
   }
@@ -18,13 +28,18 @@ export class UserController {
     return this.userService.findAll();
   }
 
-  @Patch()
-  update(@Body() updateUserDto: UpdateUserDto) {
-    return this.userService.update(updateUserDto);
+  @Patch(':id')
+  @UseInterceptors(FileInterceptor('file'))
+  update(
+    @Body() updateUserDto: UpdateUserDto,
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.userService.update(updateUserDto, id, file);
   }
 
   @Patch('/update-password')
-  updatePassword(@Body() updatePasswordDto: UpdatePasswordDto) {
+  updatePassword(@Body('data') updatePasswordDto: UpdatePasswordDto) {
     return this.userService.updatePassword(updatePasswordDto);
   }
 

@@ -11,12 +11,14 @@ import * as bcrypt from 'bcrypt';
 import { IUserService } from './interface/user.interface';
 import { User } from '@prisma/client';
 import { UpdatePasswordDto } from './dto/update-password';
+import { S3Service } from 'src/s3/s3.service';
 
 @Injectable()
 export class UserService implements IUserService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly stripeService: StripeService,
+    private readonly s3Service: S3Service,
   ) {}
   async create(createUserDto: CreateUserDto): Promise<User> {
     const userAlreadyExists = await this.prismaService.user.findUnique({
@@ -59,11 +61,14 @@ export class UserService implements IUserService {
     return users;
   }
 
-  async update(UpdateUserDto: UpdateUserDto): Promise<User> {
-    let newPasswordHash: string;
+  async update(
+    UpdateUserDto: UpdateUserDto,
+    id: string,
+    file: Express.Multer.File,
+  ): Promise<User> {
     const userAlreadyExists = await this.prismaService.user.findUnique({
       where: {
-        email: UpdateUserDto.email,
+        id,
       },
     });
 
@@ -71,17 +76,9 @@ export class UserService implements IUserService {
       throw new BadRequestException();
     }
 
-    const comparePassword = await bcrypt.compare(
-      UpdateUserDto.senha,
-      userAlreadyExists.senha,
-    );
-
-    if (!comparePassword) {
-      throw new UnauthorizedException();
-    }
-
-    if (UpdateUserDto.novaSenha) {
-      newPasswordHash = await bcrypt.hash(UpdateUserDto.novaSenha, 10);
+    let urlImage: string;
+    if (file) {
+      urlImage = await this.s3Service.uploadFile(file);
     }
 
     const user = await this.prismaService.user.update({
@@ -89,10 +86,10 @@ export class UserService implements IUserService {
         id: userAlreadyExists.id,
       },
       data: {
-        nome: UpdateUserDto.nome,
-        sobrenome: UpdateUserDto.sobrenome,
-        senha: newPasswordHash ? newPasswordHash : userAlreadyExists.senha,
-        telefone: UpdateUserDto.telefone,
+        nome: UpdateUserDto.nome || userAlreadyExists.nome,
+        sobrenome: UpdateUserDto.sobrenome || userAlreadyExists.sobrenome,
+        telefone: UpdateUserDto.telefone || userAlreadyExists.telefone,
+        imagem: urlImage || userAlreadyExists.imagem,
       },
     });
 
@@ -199,6 +196,15 @@ export class UserService implements IUserService {
       },
       data: {
         ativo: false,
+      },
+    });
+
+    await this.prismaService.adverts.updateMany({
+      where: {
+        usuario_id: user.id,
+      },
+      data: {
+        status: 'INATIVO',
       },
     });
 

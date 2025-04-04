@@ -19,7 +19,7 @@ export class AuthController {
 
   @Post('/register')
   @HttpCode(201)
-  async signup(@Body() createAuthDto: CreateAuthDto) {
+  async signup(@Body('data') createAuthDto: CreateAuthDto) {
     const { accessToken, refreshToken } =
       await this.authService.register(createAuthDto);
 
@@ -28,7 +28,7 @@ export class AuthController {
 
   @Post('/signin')
   @HttpCode(200)
-  async signin(@Body() siginAuthDto: SigninAuthDto) {
+  async signin(@Body('data') siginAuthDto: SigninAuthDto) {
     const { accessToken, refreshToken } =
       await this.authService.login(siginAuthDto);
 

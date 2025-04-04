@@ -5,27 +5,18 @@ import { FipeService } from './fipe.service';
 export class FipeController {
   constructor(private readonly fipeService: FipeService) {}
 
-  @Get('/types')
-  findTypes() {
-    return this.fipeService.findTypes();
+  @Get('/sync')
+  sync() {
+    return this.fipeService.sync();
   }
 
   @Get('/brands/:type')
-  findBrands(@Param('type') type: string) {
+  getBrands(@Param('type') type: string) {
     return this.fipeService.findBrands(type);
   }
 
-  @Get('/models/:type/:brand')
-  findModels(@Param('type') type: string, @Param('brand') brand: string) {
-    return this.fipeService.findModels(type, brand);
-  }
-
-  @Get('/years/:type/:brand/:model')
-  findYears(
-    @Param('type') type: string,
-    @Param('brand') brand: string,
-    @Param('model') model: string,
-  ) {
-    return this.fipeService.findYears(type, brand, model);
+  @Get('/models/:brand')
+  getModels(@Param('brand') brand: string) {
+    return this.fipeService.findModels(brand);
   }
 }

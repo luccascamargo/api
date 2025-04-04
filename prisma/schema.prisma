@@ -9,7 +9,7 @@ datasource db {
 
 model User {
   id               String         @id @unique @default(uuid())
-  stripe_id        String         @unique
+  stripe_id        String?        @unique
   nome             String
   sobrenome        String
   email            String         @unique
@@ -27,16 +27,18 @@ model User {
 }
 
 model Subscription {
-  id                String   @unique @default(uuid())
-  status            Boolean
-  inscricao_id      String?  @unique
-  usuario_id        String
-  stripe_produto_id String?
-  data_atualizacao  DateTime @default(now()) @db.Timestamp(6)
-  data_criacao      DateTime @default(now()) @db.Timestamp(6)
-  periodo_inicial   DateTime
-  periodo_final     DateTime
-  usuario           User     @relation(fields: [usuario_id], references: [id])
+  id                           String   @unique @default(uuid())
+  status                       String
+  inscricao_id                 String?  @unique
+  ciclo                        String
+  usuario_id                   String
+  stripe_produto_id            String?
+  data_atualizacao             DateTime @default(now()) @db.Timestamp(6)
+  data_criacao                 DateTime @default(now()) @db.Timestamp(6)
+  cancelar_ao_final_do_periodo Boolean
+  periodo_inicial              DateTime
+  periodo_final                DateTime
+  usuario                      User     @relation(fields: [usuario_id], references: [id])
 
   @@map("subscriptions")
 }
@@ -44,16 +46,13 @@ model Subscription {
 model Adverts {
   id                  String     @id @default(uuid())
   tipo                String
-  marca               String
-  modelo              String
   ano_modelo          Int
   cor                 String
-  cep                 String
   cidade              String
   cidade_formatada    String
   estado              String
   estado_formatado    String
-  preco               Decimal
+  preco               Int
   portas              String
   quilometragem       Int
   descricao           String?
@@ -69,8 +68,35 @@ model Adverts {
   usuario             User       @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
   imagens             Photos[]
   opcionais           Optional[] @relation("AdvertsToOptional")
+  modelo_id           Int
+  modelo              Models     @relation(fields: [modelo_id], references: [id], onDelete: Cascade)
+  marca               Brands?    @relation(fields: [marca_id], references: [id], onDelete: Cascade)
+  marca_id            Int?
 
   @@map("adverts")
+}
+
+model Brands {
+  id        Int       @id
+  nome      String
+  categoria Category
+  slug      String
+  modelos   Models[]
+  anuncios  Adverts[]
+
+  @@map("brands")
+}
+
+model Models {
+  id        Int       @id @default(autoincrement())
+  nome      String    @unique
+  slug      String
+  categoria Category
+  Adverts   Adverts[]
+  Brands    Brands?   @relation(fields: [brandsId], references: [id])
+  brandsId  Int?
+
+  @@map("models")
 }
 
 model Optional {
@@ -100,4 +126,10 @@ enum Plan {
   GRATIS
   BASICO
   PRO
+}
+
+enum Category {
+  CARROS
+  CAMINHOES
+  MOTOS
 }

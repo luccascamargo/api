@@ -1,10 +1,4 @@
-import {
-  MinLength,
-  IsEmail,
-  IsOptional,
-  IsString,
-  IsNotEmpty,
-} from 'class-validator';
+import { MinLength, IsOptional, IsString, IsNotEmpty } from 'class-validator';
 
 export class UpdateUserDto {
   @IsNotEmpty({ message: 'O valor nome não pode ser nulo.' })
@@ -13,19 +7,7 @@ export class UpdateUserDto {
 
   @IsNotEmpty({ message: 'O valor sobrenome não pode ser nulo.' })
   sobrenome: string;
-  @IsNotEmpty({ message: 'O valor email não pode ser nulo.' })
-  @IsEmail({}, { message: 'O valor email precisa de um e-mail válido.' })
-  email: string;
-  @IsNotEmpty({ message: 'O valor senha não pode ser nulo.' })
-  @MinLength(8, {
-    message: 'O valor senha precisa ter no mímino 8 digitos.',
-  })
-  senha: string;
-  @MinLength(8, {
-    message: 'O valor senha precisa ter no mímino 8 digitos.',
-  })
-  @IsOptional()
-  novaSenha: string;
+
   @IsOptional()
   @IsString({ message: 'O valor telefone precisa ser um texto.' })
   telefone: string;

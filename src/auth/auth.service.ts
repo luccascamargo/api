@@ -8,7 +8,6 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { SigninAuthDto } from './dto/signin-auth.dto';
-import { StripeService } from 'src/stripe/stripe.service';
 import { IAuthService } from './interface/auth.interface';
 
 @Injectable()
@@ -16,7 +15,6 @@ export class AuthService implements IAuthService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly jwtService: JwtService,
-    private readonly stripeService: StripeService,
   ) {}
 
   async register(
@@ -32,15 +30,6 @@ export class AuthService implements IAuthService {
       throw new BadRequestException('Usuário já existe');
     }
 
-    const customer = await this.stripeService.stripe.customers.create({
-      name: `${createAuthDto.nome} ${createAuthDto.sobrenome}`,
-      email: createAuthDto.email,
-    });
-
-    if (!customer) {
-      throw new BadRequestException('Erro ao criar o cliente no Stripe');
-    }
-
     const passwordHash = await bcrypt.hash(createAuthDto.senha, 10);
 
     const user = await this.prismaService.user.create({
@@ -50,7 +39,6 @@ export class AuthService implements IAuthService {
         nome: createAuthDto.nome,
         sobrenome: createAuthDto.sobrenome,
         senha: passwordHash,
-        stripe_id: customer.id,
       },
     });
 
@@ -76,7 +64,11 @@ export class AuthService implements IAuthService {
     });
 
     if (!userAlreadyExists) {
-      throw new BadRequestException();
+      throw new BadRequestException('Usuário não existe');
+    }
+
+    if (userAlreadyExists.ativo === false) {
+      throw new BadRequestException('Usuário desativado');
     }
 
     const comparePassword = await bcrypt.compare(
@@ -92,7 +84,9 @@ export class AuthService implements IAuthService {
       sub: userAlreadyExists.id,
     };
 
-    const accessToken = await this.jwtService.signAsync(payload);
+    const accessToken = await this.jwtService.signAsync(payload, {
+      expiresIn: '15d',
+    });
     const refreshToken = await this.jwtService.signAsync(payload, {
       expiresIn: '7d',
     });
@@ -112,6 +106,19 @@ export class AuthService implements IAuthService {
         imagem: true,
         telefone: true,
         plano: true,
+        id: true,
+        inscricoes: {
+          where: {
+            status: 'active',
+          },
+          select: {
+            periodo_final: true,
+            inscricao_id: true,
+            status: true,
+            ciclo: true,
+            cancelar_ao_final_do_periodo: true,
+          },
+        },
       },
     });
 
