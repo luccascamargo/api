@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectsCommand,
+} from '@aws-sdk/client-s3';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -16,7 +20,9 @@ export class S3Service {
     });
   }
 
-  async uploadFile(file: Express.Multer.File): Promise<string> {
+  async uploadFile(
+    file: Express.Multer.File,
+  ): Promise<{ url: string; key: string }> {
     if (!file) {
       throw new Error('Arquivo não encontrado');
     }
@@ -30,6 +36,30 @@ export class S3Service {
 
     await this.s3Client.send(command);
 
-    return `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileKey}`;
+    return {
+      url: `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileKey}`,
+      key: fileKey,
+    };
+  }
+
+  async DeleteFiles(files: { key: string }[]): Promise<string> {
+    if (files.length <= 0) {
+      throw new Error('Nenhum arquivo encontrado para deletar');
+    }
+    const deleteObjects = files.map((file) => ({
+      Key: file.key,
+    }));
+
+    const command = {
+      Bucket: process.env.AWS_S3_BUCKET_NAME,
+      Delete: {
+        Objects: deleteObjects,
+        Quiet: true,
+      },
+    };
+
+    await this.s3Client.send(new DeleteObjectsCommand(command));
+
+    return 'Arquivos deletados com sucesso';
   }
 }

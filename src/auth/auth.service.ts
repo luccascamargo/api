@@ -1,7 +1,7 @@
 import {
-  BadRequestException,
+  ConflictException,
+  ForbiddenException,
   Injectable,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -27,7 +27,13 @@ export class AuthService implements IAuthService {
     });
 
     if (userAlreadyExists) {
-      throw new BadRequestException('Usuário já existe');
+      if (userAlreadyExists.ativo === false) {
+        throw new ConflictException({
+          code: 'user_inactive',
+          message: 'Usuário inativo',
+        });
+      }
+      throw new ConflictException('Usuário já existe');
     }
 
     const passwordHash = await bcrypt.hash(createAuthDto.senha, 10);
@@ -64,11 +70,15 @@ export class AuthService implements IAuthService {
     });
 
     if (!userAlreadyExists) {
-      throw new BadRequestException('Usuário não existe');
+      throw new ForbiddenException('Usuário não existe');
     }
 
     if (userAlreadyExists.ativo === false) {
-      throw new BadRequestException('Usuário desativado');
+      throw new ForbiddenException({
+        code: 'user_inactive',
+        message: 'Usuário inativo',
+        statusCode: 403,
+      });
     }
 
     const comparePassword = await bcrypt.compare(
@@ -77,7 +87,7 @@ export class AuthService implements IAuthService {
     );
 
     if (!comparePassword) {
-      throw new UnauthorizedException();
+      throw new ForbiddenException('E-mail ou senha incorretos');
     }
 
     const payload = {
@@ -123,7 +133,7 @@ export class AuthService implements IAuthService {
     });
 
     if (!userAlreadyExists) {
-      throw new BadRequestException();
+      throw new ForbiddenException('Usuário não existe');
     }
 
     return userAlreadyExists;

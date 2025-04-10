@@ -110,6 +110,7 @@ model Optional {
 model Photos {
   id         String  @id @default(uuid())
   url        String
+  key        String
   anuncio_id String
   anuncio    Adverts @relation(fields: [anuncio_id], references: [id], onDelete: Cascade)
 

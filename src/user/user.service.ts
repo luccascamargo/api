@@ -76,9 +76,9 @@ export class UserService implements IUserService {
       throw new BadRequestException();
     }
 
-    let urlImage: string;
+    let imageProfile: { url: string; key: string } | undefined = undefined;
     if (file) {
-      urlImage = await this.s3Service.uploadFile(file);
+      imageProfile = await this.s3Service.uploadFile(file);
     }
 
     const user = await this.prismaService.user.update({
@@ -89,7 +89,7 @@ export class UserService implements IUserService {
         nome: UpdateUserDto.nome || userAlreadyExists.nome,
         sobrenome: UpdateUserDto.sobrenome || userAlreadyExists.sobrenome,
         telefone: UpdateUserDto.telefone || userAlreadyExists.telefone,
-        imagem: urlImage || userAlreadyExists.imagem,
+        imagem: imageProfile ? imageProfile.url : userAlreadyExists.imagem,
       },
     });
 

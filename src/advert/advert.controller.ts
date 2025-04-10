@@ -61,7 +61,7 @@ export class AdvertController {
   update(
     @Param('id') id: string,
     @UploadedFiles() files: Array<Express.Multer.File>,
-    @Body('data') updateAdvertDto: UpdateAdvertDto,
+    @Body() updateAdvertDto: UpdateAdvertDto,
   ) {
     return this.advertService.update(id, updateAdvertDto, files);
   }
@@ -82,11 +82,6 @@ export class AdvertController {
   @UseGuards(AuthGuard)
   remove(@User() user: UserPayload, @Param('id') id: string) {
     return this.advertService.remove(id, user);
-  }
-
-  @Get('/filter')
-  filter(@Query() filterAdvertsDto: FilterAdvertsDto) {
-    return this.advertService.filterAdverts(filterAdvertsDto);
   }
 
   @Get('/filterbytype/:type')

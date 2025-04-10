@@ -28,7 +28,6 @@ export interface IAdvertService {
   active(id: string, user: UserPayload): Promise<any>;
   inactive(id: string, user: UserPayload): Promise<any>;
   remove(id: string, user: UserPayload): Promise<{ message: string }>;
-  filterAdverts(filter: any): Promise<IFilterAdverts>;
   filterByType(filter: any, type: string): Promise<IFilterAdverts>;
   filterByBrand(filter: any, brand: string): Promise<IFilterAdverts>;
   filterByModel(filter: any, model: string): Promise<IFilterAdverts>;

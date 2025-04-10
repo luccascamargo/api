@@ -88,7 +88,7 @@ export class AdvertService implements IAdvertService {
 
     if (
       userAlreadyHasAdvert.plano === 'GRATIS' &&
-      userAlreadyHasAdvert.anuncios.length >= 1
+      userAlreadyHasAdvert.anuncios.length >= 3
     ) {
       if (files.length > 6) {
         throw new BadRequestException(
@@ -116,8 +116,8 @@ export class AdvertService implements IAdvertService {
 
     const imagens = await Promise.all(
       files.map(async (file) => {
-        const url = await this.s3Service.uploadFile(file);
-        return { url };
+        const image = await this.s3Service.uploadFile(file);
+        return image;
       }),
     );
 
@@ -370,12 +370,46 @@ export class AdvertService implements IAdvertService {
       throw new BadRequestException('Anuncio não encontrado');
     }
 
-    const images = await Promise.all(
-      files.map(async (file) => {
-        const url = await this.s3Service.uploadFile(file);
-        return { url };
-      }),
-    );
+    if (
+      !files &&
+      updateAdvertDto.imagens_remover &&
+      updateAdvertDto.imagens_remover.length === advert.imagens.length
+    ) {
+      throw new BadRequestException(
+        'Você não pode remover todas as imagens do anuncio',
+      );
+    }
+
+    if (
+      files &&
+      advert.usuario.plano === 'GRATIS' &&
+      advert.imagens.length + files.length > 6
+    ) {
+      throw new BadRequestException(
+        'Limite de imagens atingido. Faça um upgrade no seu plano',
+      );
+    }
+
+    if (
+      files &&
+      advert.usuario.plano === 'BASICO' &&
+      advert.imagens.length + files.length > 12
+    ) {
+      throw new BadRequestException(
+        'Limite de imagens atingido. Faça um upgrade no seu plano',
+      );
+    }
+
+    let newImages: Array<{ url: string; key: string }> = [];
+
+    if (files && files.length > 0) {
+      newImages = await Promise.all(
+        files.map(async (file) => {
+          const image = await this.s3Service.uploadFile(file);
+          return image;
+        }),
+      );
+    }
 
     if (updateAdvertDto.imagens_remover) {
       const images_to_remove = transformToArray(
@@ -383,6 +417,14 @@ export class AdvertService implements IAdvertService {
       );
 
       if (images_to_remove.length > 0) {
+        const imagesDeleted = await this.prismaService.photos.findMany({
+          where: {
+            id: {
+              in: images_to_remove.map((image) => image.id),
+            },
+          },
+        });
+
         await this.prismaService.photos.deleteMany({
           where: {
             anuncio_id: id,
@@ -391,19 +433,17 @@ export class AdvertService implements IAdvertService {
             },
           },
         });
-        // await this.s3Service.deleteFiles(images_to_remove);
+
+        await this.s3Service.DeleteFiles(imagesDeleted);
       }
     }
 
-    let optionals: Array<Item> = [];
-
+    let optionalsRefactored: Array<string> = [];
     if (updateAdvertDto.opcionais) {
-      optionals = transformToArray(updateAdvertDto.opcionais);
+      optionalsRefactored = Array.isArray(updateAdvertDto.opcionais)
+        ? updateAdvertDto.opcionais
+        : [updateAdvertDto.opcionais];
     }
-
-    const formatedDescription = normalizeText(updateAdvertDto.descricao);
-
-    const formatedCity = normalizeText(updateAdvertDto.cidade);
 
     const advertUpdate = await this.prismaService.adverts.update({
       where: {
@@ -411,24 +451,27 @@ export class AdvertService implements IAdvertService {
       },
       data: {
         status: 'PENDENTE',
-        ano_modelo: parseInt(updateAdvertDto.ano_modelo),
+        ano_modelo: parseInt(updateAdvertDto.ano_modelo) || advert.ano_modelo,
         cambio: updateAdvertDto.cambio || advert.cambio,
         cidade: updateAdvertDto.cidade || advert.cidade,
-        cidade_formatada: formatedCity,
+        cidade_formatada:
+          normalizeText(updateAdvertDto.cidade) || advert.cidade_formatada,
         cor: updateAdvertDto.cor || advert.cor,
         descricao: updateAdvertDto.descricao || advert.descricao,
-        descricao_formatada: formatedDescription,
+        descricao_formatada:
+          normalizeText(updateAdvertDto.descricao) ||
+          advert.descricao_formatada,
         estado: updateAdvertDto.estado || advert.estado,
         imagens: {
           createMany: {
-            data: images.length > 0 ? images : [],
+            data: newImages.length > 0 ? newImages : [],
           },
         },
         opcionais:
-          optionals.length > 0
+          optionalsRefactored.length > 0
             ? {
-                set: optionals.map((opcional) => ({
-                  id: opcional.id,
+                set: optionalsRefactored.map((opcional) => ({
+                  id: opcional,
                 })),
               }
             : undefined,
@@ -454,7 +497,11 @@ export class AdvertService implements IAdvertService {
         usuario_id: user.sub,
       },
       include: {
-        imagens: true,
+        imagens: {
+          select: {
+            key: true,
+          },
+        },
         opcionais: true,
         usuario: true,
       },
@@ -470,270 +517,22 @@ export class AdvertService implements IAdvertService {
       },
     });
 
+    await this.s3Service.DeleteFiles(advert.imagens);
+
     return { message: 'Anuncio removido com sucesso' };
-  }
-
-  async filterAdverts(filterAdvertsDto: FilterAdvertsDto) {
-    const {
-      busca,
-      pageParam,
-      ano_modelo_max,
-      ano_modelo_min,
-      cambio,
-      cidade,
-      cor,
-      estado,
-      opcionais,
-      portas,
-      preco_max,
-      preco_min,
-      quilometragem_max,
-      quilometragem_min,
-      tipo,
-      limit,
-    } = filterAdvertsDto;
-
-    const skip = (Number(pageParam) - 1) * Number(limit);
-
-    let optionalsRefactored: Array<string> = [];
-    if (opcionais) {
-      optionalsRefactored = opcionais.split(',').map((opc) => opc);
-    }
-
-    const searchTerms = busca?.split(' ');
-
-    console.log(filterAdvertsDto);
-
-    const adverts = await this.prismaService.adverts.findMany({
-      skip,
-      take: Number(limit),
-      orderBy: { data_cricao: 'asc' },
-      where: {
-        AND: [
-          { status: 'ATIVO' },
-          searchTerms
-            ? {
-                OR: searchTerms.flatMap((term) => [
-                  {
-                    cor: { contains: normalizeText(term), mode: 'insensitive' },
-                  },
-                  {
-                    cambio: {
-                      contains: normalizeText(term),
-                      mode: 'insensitive',
-                    },
-                  },
-                  {
-                    cidade_formatada: {
-                      contains: normalizeText(term),
-                      mode: 'insensitive',
-                    },
-                  },
-                  {
-                    estado: {
-                      contains: normalizeText(term),
-                      mode: 'insensitive',
-                    },
-                  },
-                  {
-                    tipo: {
-                      contains: normalizeText(term),
-                      mode: 'insensitive',
-                    },
-                  },
-                ]),
-              }
-            : {},
-          cidade
-            ? {
-                cidade_formatada: {
-                  equals: normalizeText(cidade),
-                  mode: 'insensitive',
-                },
-              }
-            : {},
-          estado
-            ? {
-                estado_formatado: {
-                  equals: normalizeText(estado),
-                  mode: 'insensitive',
-                },
-              }
-            : {},
-          tipo ? { tipo: { contains: tipo, mode: 'insensitive' } } : {},
-          cor ? { cor: { contains: cor, mode: 'insensitive' } } : {},
-          portas ? { portas: { contains: portas, mode: 'insensitive' } } : {},
-          cambio ? { cambio: { contains: cambio, mode: 'insensitive' } } : {},
-          preco_min ? { preco: { gte: parseInt(preco_min, 10) } } : {},
-          preco_max
-            ? {
-                preco: {
-                  lte:
-                    parseInt(preco_max, 10) > 0
-                      ? parseInt(preco_max, 10)
-                      : 9999999,
-                },
-              }
-            : {},
-          quilometragem_max
-            ? {
-                quilometragem: {
-                  lte:
-                    parseInt(quilometragem_max, 10) > 0
-                      ? parseInt(quilometragem_max, 10)
-                      : 9999999,
-                },
-              }
-            : {},
-          quilometragem_min
-            ? { quilometragem: { gte: parseInt(quilometragem_min, 10) } }
-            : {},
-          ano_modelo_max
-            ? { ano_modelo: { lte: parseInt(ano_modelo_max) } }
-            : {},
-          ano_modelo_min
-            ? { ano_modelo: { gte: parseInt(ano_modelo_min) } }
-            : {},
-          opcionais
-            ? { opcionais: { some: { nome: { in: optionalsRefactored } } } }
-            : {},
-        ],
-      },
-      include: {
-        imagens: { select: { url: true, id: true } },
-        opcionais: { select: { id: true, nome: true } },
-        modelo: true,
-        marca: true,
-        usuario: {
-          select: {
-            id: true,
-            nome: true,
-            sobrenome: true,
-            imagem: true,
-            email: true,
-            telefone: true,
-            data_criacao: true,
-          },
-        },
-      },
-    });
-
-    const total = await this.prismaService.adverts.count({
-      where: {
-        AND: [
-          { status: 'ATIVO' },
-          searchTerms
-            ? {
-                OR: searchTerms.flatMap((term) => [
-                  {
-                    cor: { contains: normalizeText(term), mode: 'insensitive' },
-                  },
-                  {
-                    cambio: {
-                      contains: normalizeText(term),
-                      mode: 'insensitive',
-                    },
-                  },
-                  {
-                    cidade_formatada: {
-                      contains: normalizeText(term),
-                      mode: 'insensitive',
-                    },
-                  },
-                  {
-                    estado: {
-                      contains: normalizeText(term),
-                      mode: 'insensitive',
-                    },
-                  },
-                  {
-                    tipo: {
-                      contains: normalizeText(term),
-                      mode: 'insensitive',
-                    },
-                  },
-                ]),
-              }
-            : {},
-          cidade
-            ? {
-                cidade_formatada: {
-                  equals: normalizeText(cidade),
-                  mode: 'insensitive',
-                },
-              }
-            : {},
-          estado
-            ? {
-                estado_formatado: {
-                  equals: normalizeText(estado),
-                  mode: 'insensitive',
-                },
-              }
-            : {},
-          tipo ? { tipo: { contains: tipo, mode: 'insensitive' } } : {},
-          cor ? { cor: { contains: cor, mode: 'insensitive' } } : {},
-          portas ? { portas: { contains: portas, mode: 'insensitive' } } : {},
-          cambio ? { cambio: { contains: cambio, mode: 'insensitive' } } : {},
-          preco_min ? { preco: { gte: parseInt(preco_min, 10) } } : {},
-          preco_max
-            ? {
-                preco: {
-                  lte:
-                    parseInt(preco_max, 10) > 0
-                      ? parseInt(preco_max, 10)
-                      : 9999999,
-                },
-              }
-            : {},
-          quilometragem_max
-            ? {
-                quilometragem: {
-                  lte:
-                    parseInt(quilometragem_max, 10) > 0
-                      ? parseInt(quilometragem_max, 10)
-                      : 9999999,
-                },
-              }
-            : {},
-          quilometragem_min
-            ? { quilometragem: { gte: parseInt(quilometragem_min, 10) } }
-            : {},
-          ano_modelo_max
-            ? { ano_modelo: { lte: parseInt(ano_modelo_max) } }
-            : {},
-          ano_modelo_min
-            ? { ano_modelo: { gte: parseInt(ano_modelo_min) } }
-            : {},
-          opcionais
-            ? { opcionais: { some: { nome: { in: optionalsRefactored } } } }
-            : {},
-        ],
-      },
-    });
-
-    const nextPage =
-      skip + Number(limit) < total ? Number(pageParam) + 1 : null;
-
-    return {
-      data: adverts,
-      currentPage: Number(pageParam),
-      nextPage,
-      total,
-    };
   }
 
   async filterByType(filterAdvertsDto: FilterAdvertsDto, type: string) {
     const {
-      busca,
       pageParam,
       ano_modelo_max,
       ano_modelo_min,
       cambio,
+      busca,
       cidade,
+      estado,
       modelo,
       cor,
-      estado,
       opcionais,
       portas,
       preco_max,
@@ -748,14 +547,14 @@ export class AdvertService implements IAdvertService {
       throw new BadRequestException('Marca não encontrada');
     }
 
+    const searchTerms = busca?.split(' ');
+
     const skip = (Number(pageParam) - 1) * Number(limit);
 
     let optionalsRefactored: Array<string> = [];
     if (opcionais) {
-      optionalsRefactored = opcionais.split(',').map((opc) => opc);
+      optionalsRefactored = Array.isArray(opcionais) ? opcionais : [opcionais];
     }
-
-    const searchTerms = busca?.split(' ');
 
     const adverts = await this.prismaService.adverts.findMany({
       skip,
@@ -771,7 +570,13 @@ export class AdvertService implements IAdvertService {
                     cor: { contains: normalizeText(term), mode: 'insensitive' },
                   },
                   {
-                    modelo: {
+                    cambio: {
+                      contains: normalizeText(term),
+                      mode: 'insensitive',
+                    },
+                  },
+                  {
+                    marca: {
                       slug: {
                         contains: normalizeText(term),
                         mode: 'insensitive',
@@ -779,9 +584,11 @@ export class AdvertService implements IAdvertService {
                     },
                   },
                   {
-                    cambio: {
-                      contains: normalizeText(term),
-                      mode: 'insensitive',
+                    modelo: {
+                      slug: {
+                        contains: normalizeText(term),
+                        mode: 'insensitive',
+                      },
                     },
                   },
                   {
@@ -805,27 +612,17 @@ export class AdvertService implements IAdvertService {
                 ]),
               }
             : {},
-          cidade
-            ? {
-                cidade_formatada: {
-                  equals: normalizeText(cidade),
-                  mode: 'insensitive',
-                },
-              }
-            : {},
-          estado
-            ? {
-                estado_formatado: {
-                  equals: normalizeText(estado),
-                  mode: 'insensitive',
-                },
-              }
-            : {},
           {
             tipo: {
               equals: type,
             },
           },
+          cidade
+            ? { cidade_formatada: { contains: cidade, mode: 'insensitive' } }
+            : {},
+          estado
+            ? { estado_formatado: { contains: estado, mode: 'insensitive' } }
+            : {},
           modelo
             ? { modelo: { nome: { contains: modelo, mode: 'insensitive' } } }
             : {},
@@ -898,7 +695,13 @@ export class AdvertService implements IAdvertService {
                     cor: { contains: normalizeText(term), mode: 'insensitive' },
                   },
                   {
-                    modelo: {
+                    cambio: {
+                      contains: normalizeText(term),
+                      mode: 'insensitive',
+                    },
+                  },
+                  {
+                    marca: {
                       slug: {
                         contains: normalizeText(term),
                         mode: 'insensitive',
@@ -906,9 +709,11 @@ export class AdvertService implements IAdvertService {
                     },
                   },
                   {
-                    cambio: {
-                      contains: normalizeText(term),
-                      mode: 'insensitive',
+                    modelo: {
+                      slug: {
+                        contains: normalizeText(term),
+                        mode: 'insensitive',
+                      },
                     },
                   },
                   {
@@ -932,27 +737,17 @@ export class AdvertService implements IAdvertService {
                 ]),
               }
             : {},
-          cidade
-            ? {
-                cidade_formatada: {
-                  equals: normalizeText(cidade),
-                  mode: 'insensitive',
-                },
-              }
-            : {},
-          estado
-            ? {
-                estado_formatado: {
-                  equals: normalizeText(estado),
-                  mode: 'insensitive',
-                },
-              }
-            : {},
           {
             tipo: {
               equals: type,
             },
           },
+          cidade
+            ? { cidade_formatada: { contains: cidade, mode: 'insensitive' } }
+            : {},
+          estado
+            ? { estado_formatado: { contains: estado, mode: 'insensitive' } }
+            : {},
           modelo
             ? { modelo: { nome: { contains: modelo, mode: 'insensitive' } } }
             : {},
@@ -1010,21 +805,21 @@ export class AdvertService implements IAdvertService {
 
   async filterByBrand(filterAdvertsDto: FilterAdvertsDto, brand: string) {
     const {
-      busca,
       pageParam,
       ano_modelo_max,
       ano_modelo_min,
       cambio,
-      cidade,
       modelo,
       cor,
       estado,
+      cidade,
       opcionais,
       portas,
       preco_max,
       preco_min,
       quilometragem_max,
       quilometragem_min,
+      busca,
       tipo,
       limit,
     } = filterAdvertsDto;
@@ -1033,14 +828,14 @@ export class AdvertService implements IAdvertService {
       throw new BadRequestException('Marca não encontrada');
     }
 
+    const searchTerms = busca?.split(' ');
+
     const skip = (Number(pageParam) - 1) * Number(limit);
 
     let optionalsRefactored: Array<string> = [];
     if (opcionais) {
-      optionalsRefactored = opcionais.split(',').map((opc) => opc);
+      optionalsRefactored = Array.isArray(opcionais) ? opcionais : [opcionais];
     }
-
-    const searchTerms = busca?.split(' ');
 
     const adverts = await this.prismaService.adverts.findMany({
       skip,
@@ -1056,7 +851,13 @@ export class AdvertService implements IAdvertService {
                     cor: { contains: normalizeText(term), mode: 'insensitive' },
                   },
                   {
-                    modelo: {
+                    cambio: {
+                      contains: normalizeText(term),
+                      mode: 'insensitive',
+                    },
+                  },
+                  {
+                    marca: {
                       slug: {
                         contains: normalizeText(term),
                         mode: 'insensitive',
@@ -1064,9 +865,11 @@ export class AdvertService implements IAdvertService {
                     },
                   },
                   {
-                    cambio: {
-                      contains: normalizeText(term),
-                      mode: 'insensitive',
+                    modelo: {
+                      slug: {
+                        contains: normalizeText(term),
+                        mode: 'insensitive',
+                      },
                     },
                   },
                   {
@@ -1090,27 +893,17 @@ export class AdvertService implements IAdvertService {
                 ]),
               }
             : {},
-          cidade
-            ? {
-                cidade_formatada: {
-                  equals: normalizeText(cidade),
-                  mode: 'insensitive',
-                },
-              }
-            : {},
-          estado
-            ? {
-                estado_formatado: {
-                  equals: normalizeText(estado),
-                  mode: 'insensitive',
-                },
-              }
-            : {},
           {
             marca: {
               slug: brand,
             },
           },
+          cidade
+            ? { cidade_formatada: { contains: cidade, mode: 'insensitive' } }
+            : {},
+          estado
+            ? { estado_formatado: { contains: estado, mode: 'insensitive' } }
+            : {},
           modelo
             ? { modelo: { nome: { contains: modelo, mode: 'insensitive' } } }
             : {},
@@ -1183,7 +976,13 @@ export class AdvertService implements IAdvertService {
                     cor: { contains: normalizeText(term), mode: 'insensitive' },
                   },
                   {
-                    modelo: {
+                    cambio: {
+                      contains: normalizeText(term),
+                      mode: 'insensitive',
+                    },
+                  },
+                  {
+                    marca: {
                       slug: {
                         contains: normalizeText(term),
                         mode: 'insensitive',
@@ -1191,9 +990,11 @@ export class AdvertService implements IAdvertService {
                     },
                   },
                   {
-                    cambio: {
-                      contains: normalizeText(term),
-                      mode: 'insensitive',
+                    modelo: {
+                      slug: {
+                        contains: normalizeText(term),
+                        mode: 'insensitive',
+                      },
                     },
                   },
                   {
@@ -1217,27 +1018,17 @@ export class AdvertService implements IAdvertService {
                 ]),
               }
             : {},
-          cidade
-            ? {
-                cidade_formatada: {
-                  equals: normalizeText(cidade),
-                  mode: 'insensitive',
-                },
-              }
-            : {},
-          estado
-            ? {
-                estado_formatado: {
-                  equals: normalizeText(estado),
-                  mode: 'insensitive',
-                },
-              }
-            : {},
           {
             marca: {
               slug: brand,
             },
           },
+          cidade
+            ? { cidade_formatada: { contains: cidade, mode: 'insensitive' } }
+            : {},
+          estado
+            ? { estado_formatado: { contains: estado, mode: 'insensitive' } }
+            : {},
           modelo
             ? { modelo: { nome: { contains: modelo, mode: 'insensitive' } } }
             : {},
@@ -1295,14 +1086,14 @@ export class AdvertService implements IAdvertService {
 
   async filterByModel(filterAdvertsDto: FilterAdvertsDto, model: string) {
     const {
-      busca,
       pageParam,
       ano_modelo_max,
       ano_modelo_min,
       cambio,
-      cidade,
       cor,
       estado,
+      cidade,
+      busca,
       opcionais,
       portas,
       preco_max,
@@ -1317,14 +1108,14 @@ export class AdvertService implements IAdvertService {
       throw new BadRequestException('Marca não encontrada');
     }
 
+    const searchTerms = busca?.split(' ');
+
     const skip = (Number(pageParam) - 1) * Number(limit);
 
     let optionalsRefactored: Array<string> = [];
     if (opcionais) {
-      optionalsRefactored = opcionais.split(',').map((opc) => opc);
+      optionalsRefactored = Array.isArray(opcionais) ? opcionais : [opcionais];
     }
-
-    const searchTerms = busca?.split(' ');
 
     const adverts = await this.prismaService.adverts.findMany({
       skip,
@@ -1338,6 +1129,22 @@ export class AdvertService implements IAdvertService {
                 OR: searchTerms.flatMap((term) => [
                   {
                     cor: { contains: normalizeText(term), mode: 'insensitive' },
+                  },
+                  {
+                    marca: {
+                      slug: {
+                        contains: normalizeText(term),
+                        mode: 'insensitive',
+                      },
+                    },
+                  },
+                  {
+                    modelo: {
+                      slug: {
+                        contains: normalizeText(term),
+                        mode: 'insensitive',
+                      },
+                    },
                   },
                   {
                     cambio: {
@@ -1366,27 +1173,17 @@ export class AdvertService implements IAdvertService {
                 ]),
               }
             : {},
-          cidade
-            ? {
-                cidade_formatada: {
-                  equals: normalizeText(cidade),
-                  mode: 'insensitive',
-                },
-              }
-            : {},
-          estado
-            ? {
-                estado_formatado: {
-                  equals: normalizeText(estado),
-                  mode: 'insensitive',
-                },
-              }
-            : {},
           {
             modelo: {
               slug: model,
             },
           },
+          cidade
+            ? { cidade_formatada: { contains: cidade, mode: 'insensitive' } }
+            : {},
+          estado
+            ? { estado_formatado: { contains: estado, mode: 'insensitive' } }
+            : {},
           tipo ? { tipo: { contains: tipo, mode: 'insensitive' } } : {},
           cor ? { cor: { contains: cor, mode: 'insensitive' } } : {},
           portas ? { portas: { contains: portas, mode: 'insensitive' } } : {},
@@ -1455,7 +1252,22 @@ export class AdvertService implements IAdvertService {
                   {
                     cor: { contains: normalizeText(term), mode: 'insensitive' },
                   },
-
+                  {
+                    marca: {
+                      slug: {
+                        contains: normalizeText(term),
+                        mode: 'insensitive',
+                      },
+                    },
+                  },
+                  {
+                    modelo: {
+                      slug: {
+                        contains: normalizeText(term),
+                        mode: 'insensitive',
+                      },
+                    },
+                  },
                   {
                     cambio: {
                       contains: normalizeText(term),
@@ -1483,27 +1295,17 @@ export class AdvertService implements IAdvertService {
                 ]),
               }
             : {},
-          cidade
-            ? {
-                cidade_formatada: {
-                  equals: normalizeText(cidade),
-                  mode: 'insensitive',
-                },
-              }
-            : {},
-          estado
-            ? {
-                estado_formatado: {
-                  equals: normalizeText(estado),
-                  mode: 'insensitive',
-                },
-              }
-            : {},
           {
             modelo: {
               slug: model,
             },
           },
+          cidade
+            ? { cidade_formatada: { contains: cidade, mode: 'insensitive' } }
+            : {},
+          estado
+            ? { estado_formatado: { contains: estado, mode: 'insensitive' } }
+            : {},
           tipo ? { tipo: { contains: tipo, mode: 'insensitive' } } : {},
           cor ? { cor: { contains: cor, mode: 'insensitive' } } : {},
           portas ? { portas: { contains: portas, mode: 'insensitive' } } : {},

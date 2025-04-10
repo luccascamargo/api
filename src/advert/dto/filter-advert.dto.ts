@@ -1,12 +1,20 @@
 import { IsOptional, IsString } from 'class-validator';
 export class FilterAdvertsDto {
   @IsOptional()
-  @IsString({ message: 'O campo busca deve ser uma string' })
-  busca?: string;
+  @IsString({ message: 'O campo tipo deve ser uma string' })
+  tipo?: string;
 
   @IsOptional()
   @IsString({ message: 'O campo tipo deve ser uma string' })
-  tipo?: string;
+  cidade?: string;
+
+  @IsOptional()
+  @IsString({ message: 'O campo tipo deve ser uma string' })
+  estado?: string;
+
+  @IsOptional()
+  @IsString({ message: 'O campo tipo deve ser uma string' })
+  busca?: string;
 
   @IsOptional()
   @IsString({ message: 'O campo marca deve ser uma string' })
@@ -29,10 +37,6 @@ export class FilterAdvertsDto {
   cor?: string;
 
   @IsOptional()
-  @IsString({ message: 'O campo cidade deve ser uma string' })
-  cidade?: string;
-
-  @IsOptional()
   @IsString({ message: 'O campo preco_min deve ser uma string' })
   preco_min?: string;
 
@@ -43,10 +47,6 @@ export class FilterAdvertsDto {
   @IsOptional()
   @IsString({ message: 'O campo portas deve ser uma string' })
   portas?: string;
-
-  @IsOptional()
-  @IsString({ message: 'O campo estado deve ser uma string' })
-  estado?: string;
 
   @IsOptional()
   @IsString({ message: 'O campo quilometragem_min deve ser uma string' })
